@@ -187,7 +187,8 @@ html, body {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
-.engine-picker-wrapper {
+.engine-picker-wrapper,
+.theme-picker-wrapper {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;

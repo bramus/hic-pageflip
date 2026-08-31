@@ -10,6 +10,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('pageflip_theme');
+        if (t) document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    })();
+  </script>
   <style>
     .viewport-stage {
       flex: 1;
@@ -220,6 +228,7 @@
         </div>
 
         <div class="theme-picker-wrapper">
+          <label for="theme-select" class="picker-label">Theme:</label>
           <select id="theme-select" class="theme-dropdown" title="Desk Surface Theme">
             <option value="slate">Slate Studio</option>
             <option value="wood">Mahogany Desk</option>

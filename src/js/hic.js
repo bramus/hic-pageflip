@@ -379,8 +379,20 @@ class HICApp {
     });
 
     if (this.themeSelect) {
+      const savedTheme = localStorage.getItem('pageflip_theme');
+      if (savedTheme) {
+        document.body.dataset.theme = savedTheme;
+        document.documentElement.dataset.theme = savedTheme;
+        this.themeSelect.value = savedTheme;
+      }
+
       this.themeSelect.addEventListener('change', (e) => {
-        document.body.dataset.theme = e.target.value;
+        const theme = e.target.value;
+        document.body.dataset.theme = theme;
+        document.documentElement.dataset.theme = theme;
+        try {
+          localStorage.setItem('pageflip_theme', theme);
+        } catch (err) {}
       });
     }
 
