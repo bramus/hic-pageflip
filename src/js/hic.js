@@ -190,7 +190,23 @@ class HICApp {
     }
   }
 
+  checkHICSupport() {
+    const canvasProto = HTMLCanvasElement.prototype;
+    const ctxProto = CanvasRenderingContext2D.prototype;
+    const hasLayoutSubtree = 'layoutSubtree' in canvasProto || 'layoutsubtree' in canvasProto;
+    const hasDrawElementImage = 'drawElementImage' in ctxProto;
+    return hasLayoutSubtree && hasDrawElementImage;
+  }
+
   init() {
+    const warningBanner = document.getElementById('hic-warning-banner');
+    if (!this.checkHICSupport()) {
+      if (warningBanner) warningBanner.hidden = false;
+      console.warn('HTML-in-Canvas (HiC) is not supported in this browser. layoutSubtree and/or drawElementImage not found in prototypes.');
+    } else {
+      if (warningBanner) warningBanner.hidden = true;
+    }
+
     if (!this.canvas.hasAttribute('layoutsubtree')) {
       this.canvas.setAttribute('layoutsubtree', '');
     }

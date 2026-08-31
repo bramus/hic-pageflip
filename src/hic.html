@@ -120,11 +120,78 @@
       text-decoration: underline;
       text-underline-offset: 4px;
     }
+
+    /* HIC Unsupported Warning Banner */
+    .hic-warning-banner {
+      position: absolute;
+      top: 75px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: rgba(220, 38, 38, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: #ffffff;
+      padding: 0.85rem 1.5rem;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.95rem;
+      max-width: 90%;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      animation: bannerSlideDown 0.3s ease-out;
+    }
+
+    .hic-warning-banner[hidden] {
+      display: none !important;
+    }
+
+    .hic-warning-banner a {
+      color: #ffffff;
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .hic-warning-banner .warning-icon {
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+
+    .hic-warning-banner code {
+      background: rgba(0, 0, 0, 0.25);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.88em;
+    }
+
+    @keyframes bannerSlideDown {
+      from {
+        opacity: 0;
+        transform: translate(-50%, -20px);
+      }
+      to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+    }
   </style>
 </head>
 
 <body data-theme="slate">
   <div id="app" class="app-root">
+    <!-- HIC Support Warning Banner -->
+    <div id="hic-warning-banner" class="hic-warning-banner" hidden>
+      <span class="warning-icon">⚠️</span>
+      <div class="warning-text">
+        <strong>HTML-in-Canvas (HiC) not supported in this browser.</strong>
+        To run this demo, use Chrome Canary 149+ with <code>chrome://flags/#canvas-draw-element</code> enabled.
+        <a href="https://developer.chrome.com/blog/html-in-canvas-origin-trial" target="_blank" rel="noopener">Learn more &rarr;</a>
+      </div>
+    </div>
+
     <!-- Top Navigation Header -->
     <header class="app-header">
       <div class="header-left">
