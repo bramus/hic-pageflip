@@ -198,12 +198,15 @@ class HICApp {
       this.canvas.setAttribute('layoutsubtree', '');
     }
 
+    const pw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset?.pageflipWidth, 10) || 1024;
+    const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset?.pageflipHeight, 10) || 768;
+
     const slideElements = Array.from(this.canvas.querySelectorAll('.slide'));
     this.slides = slideElements.map((el, index) => ({
       pageNum: index + 1,
       element: el,
-      pw: 1024,
-      ph: 768
+      pw: pw,
+      ph: ph
     }));
 
     if (engineMode === '3d') {
@@ -251,13 +254,16 @@ class HICApp {
     }
 
     // 1. Extract slides from canvas child elements
+    const pw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset?.pageflipWidth, 10) || 1024;
+    const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset?.pageflipHeight, 10) || 768;
+
     const slideElements = Array.from(this.canvas.querySelectorAll('.slide'));
     this.slides = slideElements.map((el, index) => {
       return {
         pageNum: index + 1,
         element: el,
-        pw: 1024,
-        ph: 768
+        pw: pw,
+        ph: ph
       };
     });
 
@@ -282,13 +288,15 @@ class HICApp {
       }
     }
 
-    // 3. Initialize chosen renderer
+    // 3. Apply canvas dimensions and background variables before renderer preloads textures
+    this.applyDimensions();
+
+    // 4. Initialize chosen renderer
     if (this.engineMode === '3d') {
       this.renderer = new WebGLFlipbookRenderer(this.canvas, this.slides);
     } else {
       this.renderer = new HICFlipbookRenderer(this.canvas, this.slides);
     }
-    this.applyDimensions();
 
     const totalPages = this.slides.length || 6;
 

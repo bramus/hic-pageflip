@@ -11,20 +11,22 @@ export class WebGLFlipbookRenderer {
     this.gl = null;
     this.program = null;
 
-    // Standard page dimensions
-    this.pw = 1024;
-    this.ph = 768;
+    // Page dimensions (initialized from canvas attributes if present, updated dynamically via setDimensions)
+    const attrPw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset?.pageflipWidth, 10);
+    const attrPh = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset?.pageflipHeight, 10);
+    this.pw = attrPw || 1024;
+    this.ph = attrPh || 768;
     this.devicePixelRatio = window.devicePixelRatio || 1;
 
-    // Viewport transformations
-    this.viewportWidth = 1024;
-    this.viewportHeight = 768;
+    // Viewport transformations (updated dynamically on resize)
+    this.viewportWidth = this.pw;
+    this.viewportHeight = this.ph;
     this.scale = 1;
     this.zoom = 1;
     this.panX = 0;
     this.panY = 0;
-    this.offsetX = 512;
-    this.offsetY = 384;
+    this.offsetX = this.pw / 2;
+    this.offsetY = this.ph / 2;
 
     // Mesh resolution (Chris Luke cylinder grid)
     this.gridX = 80;
