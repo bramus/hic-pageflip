@@ -472,18 +472,47 @@ export class WebGLFlipbookRenderer {
     }
   }
 
+  updateDOMSlides(state) {
+    if (!this.slides || this.slides.length === 0) return;
+
+    const [leftPage, rightPage] = state.currentSpread;
+    const totalPages = state.totalPages || this.slides.length;
+    const scale = this.scale * this.zoom;
+
+    // Only de-inert pages if resting (not dragging or flipping)
+    const isInteracting = state.isDragging || (state.activeFlip && !state.activeFlip.isPeek);
+    const activePages = new Set();
+    if (!isInteracting) {
+      if (leftPage > 0) activePages.add(leftPage);
+      if (rightPage <= totalPages) activePages.add(rightPage);
+    }
+
+    this.slides.forEach((s) => {
+      if (!s.element) return;
+
+      if (activePages.has(s.pageNum)) {
+        s.element.inert = false;
+        s.element.style.pointerEvents = 'auto';
+
+        const isLeft = (s.pageNum === leftPage);
+        const bx = isLeft ? -this.pw : 0;
+        const by = -this.ph / 2;
+
+        const screenPt = this.bookToScreen(bx, by);
+        s.element.style.transform = `translate(${screenPt.x}px, ${screenPt.y}px) scale(${scale})`;
+      } else {
+        s.element.inert = true;
+        s.element.style.pointerEvents = 'none';
+        s.element.style.transform = 'translate(-99999px, -99999px)';
+      }
+    });
+  }
+
   render(state) {
     const gl = this.gl;
     if (!gl || !this.program) return;
 
-    if (this.slides) {
-      this.slides.forEach((s) => {
-        if (s.element) {
-          s.element.inert = true;
-          s.element.style.transform = 'translate(-99999px, -99999px)';
-        }
-      });
-    }
+    this.updateDOMSlides(state);
 
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
