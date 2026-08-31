@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PageFlip — HTML-in-Canvas (HIC)</title>
+  <meta name="description" content="Interactive page flip book viewer built with HTML-in-Canvas DOM slides.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .viewport-stage {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 120px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .book-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* Full-viewport canvas */
+    #book-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    /* 1:1 Real size 1024x768 DOM slides */
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1024px;
+      height: 768px;
+      overflow: hidden;
+      box-sizing: border-box;
+      transform-origin: 0 0;
+    }
+
+    .slide .bg {
+      position: absolute;
+      inset: 0;
+      width: 1024px;
+      height: 768px;
+      background-size: 1024px 768px;
+      background-repeat: no-repeat;
+      background-position: center;
+      z-index: 0;
+      pointer-events: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .slide .content {
+      position: absolute;
+      inset: 0;
+      width: 1024px;
+      height: 768px;
+      transform-origin: 0 0;
+      z-index: 1;
+    }
+
+    .slide {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .links a {
+      pointer-events: auto;
+      z-index: 10;
+      position: absolute;
+      left: calc(var(--x1) / var(--page-width, 1024) * 100%);
+      top: calc(var(--y1) / var(--page-height, 768) * 100%);
+      right: calc(100% - (var(--x2) / var(--page-width, 1024) * 100%));
+      bottom: calc(100% - (var(--y2) / var(--page-height, 768) * 100%));
+    }
+
+    .links a:hover {
+      outline: 2px dotted rgb(255 255 255 / 0.2);
+      outline-offset: 10px;
+      mix-blend-mode: difference;
+    }
+
+    /* Leverages upgraded CSS attr() with dimension types */
+    .text span,
+    .texts span {
+      position: absolute;
+      width: attr(width px, auto);
+      height: attr(height px, auto);
+      transform: translateX(attr(tx px, 0px)) translateY(calc(attr(ty px, 0px) - attr(height px, 0px)));
+      font-family: monospace;
+      font-size: calc(attr(height px, 16px) * 1);
+      white-space: pre;
+      overflow: hidden;
+      color: hotpink;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body data-theme="slate">
+  <div id="app" class="app-root">
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="brand">
+          <span class="brand-icon">📖</span>
+          <span class="brand-title">PageFlip</span>
+          <span class="brand-badge">HTML-in-Canvas</span>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="book-info">
+          <h1 id="book-title" class="book-title">Geoshizzle (HTML-in-Canvas)</h1>
+          <span id="book-subtitle" class="book-subtitle">Braintwists of a mapping aficionado</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="theme-picker-wrapper">
+          <select id="theme-select" class="theme-dropdown" title="Desk Surface Theme">
+            <option value="slate">Slate Studio</option>
+            <option value="wood">Mahogany Desk</option>
+            <option value="obsidian">Obsidian Dark</option>
+            <option value="blueprint">Blueprint</option>
+          </select>
+        </div>
+
+        <button id="fullscreen-btn" class="icon-btn" title="Toggle Fullscreen (F)" aria-label="Fullscreen">
+          <span class="icon">⛶</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Viewport Stage -->
+    <main class="viewport-stage">
+      <!-- Side Nav Buttons -->
+      <button id="prev-btn" class="side-nav-btn prev" title="Previous Page (Left Arrow)" aria-label="Previous Page">
+        <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+
+      <button id="next-btn" class="side-nav-btn next" title="Next Page (Right Arrow)" aria-label="Next Page">
+        <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
+
+      <!-- Book Canvas Stage with layoutsubtree -->
+      <div id="book-container" class="book-container">
+        <canvas id="book-canvas" layoutsubtree>
+          <!-- Slide 1 -->
+          <div class="slide">
+            <div class="content" style="transform: rotate(0deg) scale(1);">
+              <div class="links"></div>
+              <div class="texts">
+                <span width="442.26" height="70" tx="290.8574" ty="341" page-width="1024" page-height="768">#GEOSHIZZLE</span>
+                <span width="378.2496" height="24" tx="322.8711" ty="744" page-width="1024" page-height="768">Fronteers 25/04/13 @ KaHo Sint-Lieven</span>
+                <span width="499.158" height="36" tx="262.4258" ty="391" page-width="1024" page-height="768">Braintwists of a mapping aficionado</span>
+              </div>
+            </div>
+            <div class="bg" style="background-image: url(&quot;/books/geoshizzle/01.png&quot;);"></div>
+          </div>
+          <!-- Slide 2 -->
+          <div class="slide">
+            <div class="content" style="transform: rotate(0deg) scale(1);">
+              <div class="links"></div>
+              <div class="texts">
+                <span width="459.57799999999975" height="70" tx="281.6416" ty="131" page-width="1024" page-height="768">a·fi·ci·o·na·do</span>
+                <span width="10.116000000000001" height="36" tx="389.0508" ty="246" page-width="1024" page-height="768">/</span>
+                <span width="26.571600000000007" height="36" tx="399.15819999999997" ty="246" page-width="1024" page-height="768">əˌ</span>
+                <span width="67.91040000000004" height="36" tx="425.7188" ty="246" page-width="1024" page-height="768">fiSH(</span>
+                <span width="20.052000000000003" height="36" tx="493.623" ty="246" page-width="1024" page-height="768">ē</span>
+                <span width="10.872" height="36" tx="513.6797" ty="246" page-width="1024" page-height="768">)</span>
+                <span width="26.571600000000007" height="36" tx="524.543" ty="246" page-width="1024" page-height="768">əˈ</span>
+                <span width="50.61600000000001" height="36" tx="551.1034999999999" ty="246" page-width="1024" page-height="768">näd</span>
+                <span width="22.104" height="36" tx="601.7284999999999" ty="246" page-width="1024" page-height="768">ō</span>
+                <span width="10.116000000000001" height="36" tx="623.8417999999999" ty="246" page-width="1024" page-height="768">/</span>
+                <span width="73.87920000000001" height="36" tx="474.5596" ty="328" page-width="1024" page-height="768">Noun</span>
+                <span width="306.6768000000002" height="36" tx="358.1572" ty="369" page-width="1024" page-height="768">A person who is very</span>
+                <span width="442.3067999999999" height="36" tx="290.34961" ty="410" page-width="1024" page-height="768">knowledgeable and enthusiastic</span>
+                <span width="511.17479999999995" height="36" tx="255.922852" ty="451" page-width="1024" page-height="768">about an activity, subject, or pastime.</span>
+              </div>
+            </div>
+            <div class="bg" style="background-image: url(&quot;/books/geoshizzle/02.png&quot;);"></div>
+          </div>
+          <!-- Slide 3 -->
+          <div class="slide">
+            <div class="content" style="transform: rotate(0deg) scale(1);">
+              <div class="links"></div>
+              <div class="texts">
+                <span width="459.57799999999975" height="70" tx="281.6416" ty="131" page-width="1024" page-height="768">a·fi·ci·o·na·do</span>
+                <span width="10.116000000000001" height="36" tx="389.0508" ty="246" page-width="1024" page-height="768">/</span>
+                <span width="26.571600000000007" height="36" tx="399.15819999999997" ty="246" page-width="1024" page-height="768">əˌ</span>
+                <span width="67.91040000000004" height="36" tx="425.7188" ty="246" page-width="1024" page-height="768">fiSH(</span>
+                <span width="20.052000000000003" height="36" tx="493.623" ty="246" page-width="1024" page-height="768">ē</span>
+                <span width="10.872" height="36" tx="513.6797" ty="246" page-width="1024" page-height="768">)</span>
+                <span width="26.571600000000007" height="36" tx="524.543" ty="246" page-width="1024" page-height="768">əˈ</span>
+                <span width="50.61600000000001" height="36" tx="551.1034999999999" ty="246" page-width="1024" page-height="768">näd</span>
+                <span width="22.104" height="36" tx="601.7284999999999" ty="246" page-width="1024" page-height="768">ō</span>
+                <span width="10.116000000000001" height="36" tx="623.8417999999999" ty="246" page-width="1024" page-height="768">/</span>
+                <span width="73.87920000000001" height="36" tx="474.5596" ty="328" page-width="1024" page-height="768">Noun</span>
+                <span width="306.6768000000002" height="36" tx="358.1572" ty="369" page-width="1024" page-height="768">A person who is very</span>
+                <span width="442.3067999999999" height="36" tx="290.34961" ty="410" page-width="1024" page-height="768">knowledgeable and enthusiastic</span>
+                <span width="511.17479999999995" height="36" tx="255.922852" ty="451" page-width="1024" page-height="768">about an activity, subject, or pastime.</span>
+              </div>
+            </div>
+            <div class="bg" style="background-image: url(&quot;/books/geoshizzle/03.png&quot;);"></div>
+          </div>
+          <!-- Slide 4 -->
+          <div class="slide">
+            <div class="content" style="transform: rotate(0deg) scale(1);">
+              <div class="links"></div>
+              <div class="texts">
+                <span width="239.54000000000005" height="70" tx="391.7344" ty="129" page-width="1024" page-height="768">#bootini</span>
+              </div>
+            </div>
+            <div class="bg" style="background-image: url(&quot;/books/geoshizzle/04.png&quot;);"></div>
+          </div>
+          <!-- Slide 5 -->
+          <div class="slide">
+            <div class="content" style="transform: rotate(0deg) scale(1);">
+              <div class="links"></div>
+              <div class="texts">
+                <span width="218.34400000000005" height="70" tx="402.3301" ty="129" page-width="1024" page-height="768">#scouts</span>
+              </div>
+            </div>
+            <div class="bg" style="background-image: url(&quot;/books/geoshizzle/05.png&quot;);"></div>
+          </div>
+          <!-- Slide 6 -->
+          <div class="slide">
+            <div class="content" style="transform: rotate(0deg) scale(1);">
+              <div class="links"></div>
+              <div class="texts">
+                <span width="472.402" height="70" tx="275.7842" ty="616" page-width="1024" page-height="768">GOOGLE MAPS</span>
+                <span width="496.7496" height="36" tx="263.6299" ty="672" page-width="1024" page-height="768">Mapping has become a commodity</span>
+              </div>
+            </div>
+            <div class="bg" style="background-image: url(&quot;/books/geoshizzle/06.png&quot;);"></div>
+          </div>
+        </canvas>
+      </div>
+
+      <!-- Quick Corner Peel Hint -->
+      <div class="flip-hint-badge">
+        <span>✨ Drag page corners or use arrow keys to flip</span>
+      </div>
+    </main>
+
+    <!-- Bottom Controls & Scrubbable Timeline -->
+    <footer class="app-footer">
+      <div class="timeline-container">
+        <div class="timeline-track">
+          <div id="timeline-fill" class="timeline-fill"></div>
+          <input type="range" id="timeline-slider" class="timeline-slider" min="1" max="6" value="1" step="1" aria-label="Page timeline scrubber">
+        </div>
+      </div>
+
+      <div class="footer-toolbar">
+        <div class="toolbar-left">
+          <div class="page-indicator-box">
+            <span id="spread-indicator" class="spread-indicator">Cover (1 of 6)</span>
+          </div>
+
+          <div class="page-direct-jump">
+            <label for="page-input">Page</label>
+            <input type="number" id="page-input" class="page-number-input" min="1" max="6" value="1">
+            <span class="total-pages-label">/ <span id="total-pages">6</span></span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Scripts: Vanilla ES Modules -->
+  <script type="module" src="js/hic.js"></script>
+</body>
+
+</html>
