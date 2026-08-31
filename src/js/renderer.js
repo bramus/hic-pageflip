@@ -225,7 +225,7 @@ export class FlipbookRenderer {
       }
 
       // 5. Gutter spine shadow on the flat stationary spread UNDER the turning flap
-      if (leftPageNum > 0 && nextRightPage <= state.totalPages) {
+      if (leftPageNum > 0 && rightPageNum <= state.totalPages) {
         this.renderSpineShadow(ctx, state);
       }
 
@@ -275,7 +275,7 @@ export class FlipbookRenderer {
         if (leftPageNum > 0) {
           this.drawPage(ctx, leftPageNum, -pw, -ph / 2, pw, ph);
         }
-        if (rightPageNum <= state.totalPages) {
+        if (leftPageNum > 0 && rightPageNum <= state.totalPages) {
           this.renderSpineShadow(ctx, state);
         }
         return;
@@ -300,7 +300,7 @@ export class FlipbookRenderer {
       }
 
       // 5. Gutter spine shadow on the flat stationary spread UNDER the turning flap
-      if (prevLeftPage > 0 && rightPageNum <= state.totalPages) {
+      if (leftPageNum > 0 && rightPageNum <= state.totalPages) {
         this.renderSpineShadow(ctx, state);
       }
 

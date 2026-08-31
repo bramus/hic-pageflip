@@ -389,6 +389,26 @@ export class WebGLFlipbookRenderer {
     }
     ctx.restore();
 
+    // Center spine gutter shadow along inner edge
+    const gutterWidth = 36;
+    if (pageNum % 2 === 1) {
+      // Right page: inner spine on the left (x=0)
+      const gutterGrad = ctx.createLinearGradient(0, 0, gutterWidth, 0);
+      gutterGrad.addColorStop(0, 'rgba(0, 0, 0, 0.28)');
+      gutterGrad.addColorStop(0.35, 'rgba(0, 0, 0, 0.08)');
+      gutterGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = gutterGrad;
+      ctx.fillRect(0, 0, gutterWidth, ph);
+    } else {
+      // Left page: inner spine on the right (x=pw)
+      const gutterGrad = ctx.createLinearGradient(pw - gutterWidth, 0, pw, 0);
+      gutterGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      gutterGrad.addColorStop(0.65, 'rgba(0, 0, 0, 0.08)');
+      gutterGrad.addColorStop(1, 'rgba(0, 0, 0, 0.28)');
+      ctx.fillStyle = gutterGrad;
+      ctx.fillRect(pw - gutterWidth, 0, gutterWidth, ph);
+    }
+
     let texture = this.textures.get(pageNum);
     if (!texture) {
       texture = gl.createTexture();
