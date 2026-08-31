@@ -162,7 +162,6 @@ class HICApp {
     this.timelineFill = document.getElementById('timeline-fill');
     this.spreadIndicator = document.getElementById('spread-indicator');
     this.themeSelect = document.getElementById('theme-select');
-    this.engineSelect = document.getElementById('engine-select');
 
     this.engineMode = '2d'; // '2d' or '3d'
     this.slides = [];
@@ -268,8 +267,33 @@ class HICApp {
       };
     });
 
-    // 2. Initialize HIC Canvas Renderer & Engine with dimensions from canvas attributes
-    this.renderer = new HICFlipbookRenderer(this.canvas, this.slides);
+    // 2. Determine engine mode from URL param ?engine=2d or ?engine=3d
+    const urlParams = new URLSearchParams(window.location.search);
+    const engineParam = urlParams.get('engine');
+    this.engineMode = engineParam === '3d' ? '3d' : '2d';
+
+    const link2D = document.getElementById('engine-link-2d');
+    const link3D = document.getElementById('engine-link-3d');
+    if (link2D && link3D) {
+      if (this.engineMode === '3d') {
+        link3D.classList.add('active');
+        link3D.setAttribute('aria-current', 'page');
+        link2D.classList.remove('active');
+        link2D.removeAttribute('aria-current');
+      } else {
+        link2D.classList.add('active');
+        link2D.setAttribute('aria-current', 'page');
+        link3D.classList.remove('active');
+        link3D.removeAttribute('aria-current');
+      }
+    }
+
+    // 3. Initialize chosen renderer
+    if (this.engineMode === '3d') {
+      this.renderer = new WebGLFlipbookRenderer(this.canvas, this.slides);
+    } else {
+      this.renderer = new HICFlipbookRenderer(this.canvas, this.slides);
+    }
     this.applyDimensions();
 
     const totalPages = this.slides.length || 6;
@@ -357,12 +381,6 @@ class HICApp {
     if (this.themeSelect) {
       this.themeSelect.addEventListener('change', (e) => {
         document.body.dataset.theme = e.target.value;
-      });
-    }
-
-    if (this.engineSelect) {
-      this.engineSelect.addEventListener('change', (e) => {
-        this.switchEngine(e.target.value);
       });
     }
 

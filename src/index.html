@@ -212,10 +212,11 @@
 
       <div class="header-right">
         <div class="engine-picker-wrapper">
-          <select id="engine-select" class="theme-dropdown" title="Rendering Engine">
-            <option value="2d">Engine: 2D Canvas (Reflection)</option>
-            <option value="3d">Engine: 3D WebGL (Conical Mesh)</option>
-          </select>
+          <span class="picker-label">Engine:</span>
+          <nav class="engine-nav" aria-label="Rendering Engine">
+            <a href="?engine=2d" id="engine-link-2d" class="engine-link">2D</a>
+            <a href="?engine=3d" id="engine-link-3d" class="engine-link">3D</a>
+          </nav>
         </div>
 
         <div class="theme-picker-wrapper">
