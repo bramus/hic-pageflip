@@ -56,20 +56,14 @@ class HICFlipbookRenderer extends FlipbookRenderer {
     const totalPages = state.totalPages || this.slides.length;
     const activePages = new Set();
 
-    if (leftPage > 0) activePages.add(leftPage);
-    if (rightPage <= totalPages) activePages.add(rightPage);
-
-    if (state.activeFlip) {
-      if (state.activeFlip.dir > 0) {
-        if (rightPage + 1 <= totalPages) activePages.add(rightPage + 1);
-        if (rightPage + 2 <= totalPages) activePages.add(rightPage + 2);
-      } else {
-        if (leftPage - 1 > 0) activePages.add(leftPage - 1);
-        if (leftPage - 2 > 0) activePages.add(leftPage - 2);
-      }
+    // Once the pointer goes down (dragging) or during active fold animation, inert ALL pages
+    const isInteracting = state.isDragging || (state.activeFlip && !state.activeFlip.isPeek);
+    if (!isInteracting) {
+      if (leftPage > 0) activePages.add(leftPage);
+      if (rightPage <= totalPages) activePages.add(rightPage);
     }
 
-    // Dynamically inert all non-viewed pages
+    // Dynamically inert all non-active pages
     this.slides.forEach((s) => {
       if (s.element) {
         s.element.inert = !activePages.has(s.pageNum);

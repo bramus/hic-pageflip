@@ -261,6 +261,7 @@ export class Flipbook {
         isPeek: false
       };
       this.canvas.style.cursor = 'grabbing';
+      this.notifyFlipProgress();
     }
   }
 
