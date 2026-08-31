@@ -1,0 +1,19 @@
+{
+  "name": "pageflip",
+  "version": "1.0.0",
+  "description": "Interactive HTML5 Canvas and HTML-in-Canvas Flipbook",
+  "type": "module",
+  "scripts": {
+    "start": "npx -y serve src",
+    "dev": "npx -y serve src"
+  },
+  "keywords": [
+    "pageflip",
+    "canvas",
+    "flipbook",
+    "html5",
+    "html-in-canvas"
+  ],
+  "author": "Bramus Van Damme",
+  "license": "MIT"
+}
