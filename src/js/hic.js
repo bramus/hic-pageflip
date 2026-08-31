@@ -41,6 +41,41 @@ class HICFlipbookRenderer extends FlipbookRenderer {
     this.panY = 0;
   }
 
+  render(state) {
+    const [leftPage, rightPage] = state.currentSpread;
+    const totalPages = state.totalPages || this.slides.length;
+    const activePages = new Set();
+
+    if (leftPage > 0) activePages.add(leftPage);
+    if (rightPage <= totalPages) activePages.add(rightPage);
+
+    if (state.activeFlip) {
+      if (state.activeFlip.dir > 0) {
+        if (rightPage + 1 <= totalPages) activePages.add(rightPage + 1);
+        if (rightPage + 2 <= totalPages) activePages.add(rightPage + 2);
+      } else {
+        if (leftPage - 1 > 0) activePages.add(leftPage - 1);
+        if (leftPage - 2 > 0) activePages.add(leftPage - 2);
+      }
+    }
+
+    // Dynamically inert all non-viewed pages
+    this.slides.forEach((s) => {
+      if (s.element) {
+        s.element.inert = !activePages.has(s.pageNum);
+      }
+    });
+
+    super.render(state);
+  }
+
+  requestRender(callback) {
+    if (this.canvas && typeof this.canvas.requestPaint === 'function') {
+      this.canvas.requestPaint();
+    }
+    super.requestRender(callback);
+  }
+
   drawPage(ctx, pageNum, x, y, w, h) {
     const slide = this.slides[pageNum - 1];
     if (!slide || !slide.element) return;
@@ -206,12 +241,26 @@ class HICApp {
     });
     observer.observe(this.container || this.canvas);
 
-    // 4. Handle canvas paint event
-    if ('onpaint' in this.canvas || typeof this.canvas.requestPaint === 'function') {
-      this.canvas.addEventListener('paint', () => {
+    // 4. Handle canvas paint & selection events
+    const handlePaint = () => {
+      this.renderer.render(this.flipbook.getState());
+    };
+    this.canvas.onpaint = handlePaint;
+    this.canvas.addEventListener('paint', handlePaint);
+
+    document.addEventListener('selectionchange', () => {
+      if (this.canvas && typeof this.canvas.requestPaint === 'function') {
+        this.canvas.requestPaint();
+        requestAnimationFrame(() => {
+          this.canvas.requestPaint();
+        });
+      } else {
         this.renderer.render(this.flipbook.getState());
-      });
-    }
+        requestAnimationFrame(() => {
+          this.renderer.render(this.flipbook.getState());
+        });
+      }
+    });
 
     // 5. Setup UI bindings
     this.totalPagesSpan.textContent = totalPages;
