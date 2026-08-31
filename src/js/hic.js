@@ -387,6 +387,24 @@ class HICApp {
         try {
           localStorage.setItem('pageflip_theme', theme);
         } catch (err) {}
+
+        if (this.renderer && typeof this.renderer.preloadSlideTextures === 'function') {
+          this.renderer.isReloadingTextures = true;
+          this.slides.forEach((s) => {
+            if (s.element) {
+              s.element.style.transform = 'none';
+            }
+          });
+
+          // Wait for layout frame to commit before capturing textures with texElementImage2D
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              this.renderer.preloadSlideTextures();
+              this.renderer.isReloadingTextures = false;
+              this.renderer.render(this.flipbook.getState());
+            });
+          });
+        }
       });
     }
 

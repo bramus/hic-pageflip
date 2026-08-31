@@ -35,6 +35,11 @@ export class WebGLFlipbookRenderer {
 
     this.initGL();
     this.resize();
+    if (this.slides) {
+      this.slides.forEach((s) => {
+        if (s.element) s.element.style.transform = 'none';
+      });
+    }
     this.preloadSlideTextures();
   }
 
@@ -418,6 +423,8 @@ export class WebGLFlipbookRenderer {
       if (leftPage > 0) activePages.add(leftPage);
       if (rightPage <= totalPages) activePages.add(rightPage);
     }
+
+    if (this.isReloadingTextures) return;
 
     this.slides.forEach((s) => {
       if (!s.element) return;
