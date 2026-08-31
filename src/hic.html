@@ -42,75 +42,83 @@
       touch-action: none;
     }
 
-    /* 1:1 Real size 1024x768 DOM slides */
+    /* The slides */
+    @property --pageflip-width {
+      syntax: '<length>';
+      initial-value: 1024px;
+      inherits: true;
+    }
+
+    @property --pageflip-height {
+      syntax: '<length>';
+      initial-value: 768px;
+      inherits: true;
+    }
+
+    canvas {
+      --pageflip-width: attr(data-pageflip-width px, 1024px);
+      --pageflip-height: attr(data-pageflip-height px, 768px);
+      --pageflip-background: attr(data-pageflip-background type(color), #141721);
+    }
+
     .slide {
       position: absolute;
       top: 0;
       left: 0;
-      width: 1024px;
-      height: 768px;
+      transform-origin: 0 0;
+      height: var(--pageflip-height, 768px);
+      width: var(--pageflip-width, 1024px);
       overflow: hidden;
       box-sizing: border-box;
-      transform-origin: 0 0;
-    }
+      user-select: text;
+      -webkit-user-select: text;
+      background: var(--pageflip-background, #ffffff);
+      color: #111827;
 
-    .slide .bg {
-      position: absolute;
-      inset: 0;
-      width: 1024px;
-      height: 768px;
-      background-size: 1024px 768px;
-      background-repeat: no-repeat;
-      background-position: center;
-      z-index: 0;
-      pointer-events: none;
-      user-select: none;
-      -webkit-user-select: none;
+      display: grid;
+      place-content: center;
+      padding: 2em;
     }
 
     .slide .content {
-      position: absolute;
-      inset: 0;
-      width: 1024px;
-      height: 768px;
-      transform-origin: 0 0;
-      z-index: 1;
-    }
-
-    .slide {
-      user-select: text;
-      -webkit-user-select: text;
-    }
-
-    .links a {
-      pointer-events: auto;
-      z-index: 10;
-      position: absolute;
-      left: calc(var(--x1) / var(--page-width, 1024) * 100%);
-      top: calc(var(--y1) / var(--page-height, 768) * 100%);
-      right: calc(100% - (var(--x2) / var(--page-width, 1024) * 100%));
-      bottom: calc(100% - (var(--y2) / var(--page-height, 768) * 100%));
-    }
-
-    .links a:hover {
-      outline: 2px dotted rgb(255 255 255 / 0.2);
-      outline-offset: 10px;
-      mix-blend-mode: difference;
-    }
-
-    /* Leverages upgraded CSS attr() with dimension types */
-    .text span,
-    .texts span {
-      position: absolute;
-      width: attr(width px, auto);
-      height: attr(height px, auto);
-      transform: translateX(attr(tx px, 0px)) translateY(calc(attr(ty px, 0px) - attr(height px, 0px)));
-      font-family: monospace;
-      font-size: calc(attr(height px, 16px) * 1);
-      white-space: pre;
-      overflow: hidden;
-      color: hotpink;
       text-align: center;
+      max-width: 820px;
+      margin: 0 auto;
+    }
+
+    .slide .content:not(.content:first-child):not(.content:last-child) {
+      min-height: 50%;
+    }
+
+    .slide .content h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide .content p {
+      font-size: 1.2rem;
+      line-height: 1.65;
+      color: #374151;
+      margin-bottom: 1.25rem;
+    }
+
+    .slide .content ul {
+      text-align: left;
+      display: inline-block;
+      margin: 0.5rem auto 1.25rem;
+      font-size: 1.15rem;
+      line-height: 1.8;
+      color: #1f2937;
+    }
+
+    .slide .content a {
+      color: var(--accent-primary, #4f80ff);
+      text-decoration: underline;
+      text-underline-offset: 4px;
     }
   </style>
 </head>
@@ -129,8 +137,8 @@
 
       <div class="header-center">
         <div class="book-info">
-          <h1 id="book-title" class="book-title">Geoshizzle (HTML-in-Canvas)</h1>
-          <span id="book-subtitle" class="book-subtitle">Braintwists of a mapping aficionado</span>
+          <h1 id="book-title" class="book-title">HTML-in-Canvas PageFlip</h1>
+          <span id="book-subtitle" class="book-subtitle">When oldskool meetst thes newskool</span>
         </div>
       </div>
 
@@ -167,95 +175,58 @@
 
       <!-- Book Canvas Stage with layoutsubtree -->
       <div id="book-container" class="book-container">
-        <canvas id="book-canvas" layoutsubtree>
+        <canvas id="book-canvas" layoutsubtree data-pageflip-width="1024" data-pageflip-height="768" data-pageflip-background="white">
           <!-- Slide 1 -->
           <div class="slide">
-            <div class="content" style="transform: rotate(0deg) scale(1);">
-              <div class="links"></div>
-              <div class="texts">
-                <span width="442.26" height="70" tx="290.8574" ty="341" page-width="1024" page-height="768">#GEOSHIZZLE</span>
-                <span width="378.2496" height="24" tx="322.8711" ty="744" page-width="1024" page-height="768">Fronteers 25/04/13 @ KaHo Sint-Lieven</span>
-                <span width="499.158" height="36" tx="262.4258" ty="391" page-width="1024" page-height="768">Braintwists of a mapping aficionado</span>
-              </div>
+            <div class="content">
+              <h1>HTML-in-Canvas PageFlip</h1>
+              <p>Technical demo</p>
             </div>
-            <div class="bg" style="background-image: url(&quot;/books/geoshizzle/01.png&quot;);"></div>
           </div>
           <!-- Slide 2 -->
           <div class="slide">
-            <div class="content" style="transform: rotate(0deg) scale(1);">
-              <div class="links"></div>
-              <div class="texts">
-                <span width="459.57799999999975" height="70" tx="281.6416" ty="131" page-width="1024" page-height="768">a·fi·ci·o·na·do</span>
-                <span width="10.116000000000001" height="36" tx="389.0508" ty="246" page-width="1024" page-height="768">/</span>
-                <span width="26.571600000000007" height="36" tx="399.15819999999997" ty="246" page-width="1024" page-height="768">əˌ</span>
-                <span width="67.91040000000004" height="36" tx="425.7188" ty="246" page-width="1024" page-height="768">fiSH(</span>
-                <span width="20.052000000000003" height="36" tx="493.623" ty="246" page-width="1024" page-height="768">ē</span>
-                <span width="10.872" height="36" tx="513.6797" ty="246" page-width="1024" page-height="768">)</span>
-                <span width="26.571600000000007" height="36" tx="524.543" ty="246" page-width="1024" page-height="768">əˈ</span>
-                <span width="50.61600000000001" height="36" tx="551.1034999999999" ty="246" page-width="1024" page-height="768">näd</span>
-                <span width="22.104" height="36" tx="601.7284999999999" ty="246" page-width="1024" page-height="768">ō</span>
-                <span width="10.116000000000001" height="36" tx="623.8417999999999" ty="246" page-width="1024" page-height="768">/</span>
-                <span width="73.87920000000001" height="36" tx="474.5596" ty="328" page-width="1024" page-height="768">Noun</span>
-                <span width="306.6768000000002" height="36" tx="358.1572" ty="369" page-width="1024" page-height="768">A person who is very</span>
-                <span width="442.3067999999999" height="36" tx="290.34961" ty="410" page-width="1024" page-height="768">knowledgeable and enthusiastic</span>
-                <span width="511.17479999999995" height="36" tx="255.922852" ty="451" page-width="1024" page-height="768">about an activity, subject, or pastime.</span>
-              </div>
+            <div class="content">
+              <h1>PageFlip?</h1>
+              <p> was a legendary, highly sought-after ActionScript open-source engine and UI component that simulated a hyper-realistic, interactive 3D book or magazine. Users could click and drag the corner of a virtual page to watch it curl, bend, drop shadows, and flip over realistically.</p>
             </div>
-            <div class="bg" style="background-image: url(&quot;/books/geoshizzle/02.png&quot;);"></div>
           </div>
           <!-- Slide 3 -->
           <div class="slide">
-            <div class="content" style="transform: rotate(0deg) scale(1);">
-              <div class="links"></div>
-              <div class="texts">
-                <span width="459.57799999999975" height="70" tx="281.6416" ty="131" page-width="1024" page-height="768">a·fi·ci·o·na·do</span>
-                <span width="10.116000000000001" height="36" tx="389.0508" ty="246" page-width="1024" page-height="768">/</span>
-                <span width="26.571600000000007" height="36" tx="399.15819999999997" ty="246" page-width="1024" page-height="768">əˌ</span>
-                <span width="67.91040000000004" height="36" tx="425.7188" ty="246" page-width="1024" page-height="768">fiSH(</span>
-                <span width="20.052000000000003" height="36" tx="493.623" ty="246" page-width="1024" page-height="768">ē</span>
-                <span width="10.872" height="36" tx="513.6797" ty="246" page-width="1024" page-height="768">)</span>
-                <span width="26.571600000000007" height="36" tx="524.543" ty="246" page-width="1024" page-height="768">əˈ</span>
-                <span width="50.61600000000001" height="36" tx="551.1034999999999" ty="246" page-width="1024" page-height="768">näd</span>
-                <span width="22.104" height="36" tx="601.7284999999999" ty="246" page-width="1024" page-height="768">ō</span>
-                <span width="10.116000000000001" height="36" tx="623.8417999999999" ty="246" page-width="1024" page-height="768">/</span>
-                <span width="73.87920000000001" height="36" tx="474.5596" ty="328" page-width="1024" page-height="768">Noun</span>
-                <span width="306.6768000000002" height="36" tx="358.1572" ty="369" page-width="1024" page-height="768">A person who is very</span>
-                <span width="442.3067999999999" height="36" tx="290.34961" ty="410" page-width="1024" page-height="768">knowledgeable and enthusiastic</span>
-                <span width="511.17479999999995" height="36" tx="255.922852" ty="451" page-width="1024" page-height="768">about an activity, subject, or pastime.</span>
-              </div>
+            <div class="content">
+              <h1>HTML-in-Canvas?</h1>
+              <p>The HTML-in-Canvas API is an experimental browser web API that bridges the gap between traditional HTML documents (the DOM) and the high-performance rendering of the &lt;canvas&gt; element. It allows you to embed real, fully interactive DOM elements directly inside a canvas grid or a 3D WebGL/WebGPU context, combining the layout and accessibility of HTML with the powerful pixel-level effects of the GPU.</p>
             </div>
-            <div class="bg" style="background-image: url(&quot;/books/geoshizzle/03.png&quot;);"></div>
           </div>
           <!-- Slide 4 -->
           <div class="slide">
-            <div class="content" style="transform: rotate(0deg) scale(1);">
-              <div class="links"></div>
-              <div class="texts">
-                <span width="239.54000000000005" height="70" tx="391.7344" ty="129" page-width="1024" page-height="768">#bootini</span>
-              </div>
+            <div class="content">
+              <h1>PageFlip + HTML-in-Canvas</h1>
+              <p>While PageFlip was built with ActionScript, we can recreate the experience using HTML-in-Canvas. This allows us to use real DOM elements for the pages, which gives us:
+              <ul>
+                <li>Native text selection</li>
+                <li>CSS styling</li>
+                <li>JavaScript interactivity</li>
+                <li>Accessibility out-of-the-box</li>
+              </ul>
+              </p>
             </div>
-            <div class="bg" style="background-image: url(&quot;/books/geoshizzle/04.png&quot;);"></div>
           </div>
           <!-- Slide 5 -->
           <div class="slide">
-            <div class="content" style="transform: rotate(0deg) scale(1);">
-              <div class="links"></div>
-              <div class="texts">
-                <span width="218.34400000000005" height="70" tx="402.3301" ty="129" page-width="1024" page-height="768">#scouts</span>
-              </div>
+            <div class="content">
+              <h1>Resources</h1>
+              <ul>
+                <li><a href="https://blog.flirble.org/2010/10/08/the-anatomy-of-a-page-curl/">The anatomy of a page curl</a></li>
+                <li><a href="https://wdnuon.blogspot.com/2010/05/implementing-ibooks-page-curling-using.html">Implementing iBooks page curling using a conical deformation algorithm</a></li>
+                <li><a href="https://developer.chrome.com/blog/html-in-canvas-origin-trial">HTML-in-Canvas</a></li>
+              </ul>
             </div>
-            <div class="bg" style="background-image: url(&quot;/books/geoshizzle/05.png&quot;);"></div>
           </div>
           <!-- Slide 6 -->
           <div class="slide">
-            <div class="content" style="transform: rotate(0deg) scale(1);">
-              <div class="links"></div>
-              <div class="texts">
-                <span width="472.402" height="70" tx="275.7842" ty="616" page-width="1024" page-height="768">GOOGLE MAPS</span>
-                <span width="496.7496" height="36" tx="263.6299" ty="672" page-width="1024" page-height="768">Mapping has become a commodity</span>
-              </div>
+            <div class="content">
+              <h1>FIN.</h1>
             </div>
-            <div class="bg" style="background-image: url(&quot;/books/geoshizzle/06.png&quot;);"></div>
           </div>
         </canvas>
       </div>

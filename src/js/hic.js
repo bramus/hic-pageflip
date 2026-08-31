@@ -15,9 +15,18 @@ class HICFlipbookRenderer extends FlipbookRenderer {
     super(canvas);
     this.slides = slides;
     this.devicePixelRatio = 1;
+    this.updateDimensionsFromAttributes();
+  }
+
+  updateDimensionsFromAttributes() {
+    const pw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset.pageflipWidth, 10) || 1024;
+    const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset.pageflipHeight, 10) || 768;
+    this.setDimensions(pw, ph);
   }
 
   resize() {
+    this.updateDimensionsFromAttributes();
+
     const rect = this.canvas.getBoundingClientRect();
     this.devicePixelRatio = 1;
 
@@ -81,8 +90,6 @@ class HICFlipbookRenderer extends FlipbookRenderer {
     if (!slide || !slide.element) return;
 
     const el = slide.element;
-    let drawn = false;
-
     if (typeof ctx.drawElementImage === 'function') {
       try {
         ctx.save();
@@ -92,14 +99,9 @@ class HICFlipbookRenderer extends FlipbookRenderer {
           el.style.transform = transform.toString();
         }
         ctx.restore();
-        drawn = true;
       } catch (err) {
-        // Fallback if paint record not ready
+        // Ignore if paint record not ready
       }
-    }
-
-    if (!drawn) {
-      super.drawPage(ctx, pageNum, x, y, w, h);
     }
   }
 
@@ -108,8 +110,6 @@ class HICFlipbookRenderer extends FlipbookRenderer {
     if (!slide || !slide.element) return;
 
     const el = slide.element;
-    let drawn = false;
-
     if (typeof ctx.drawElementImage === 'function') {
       try {
         ctx.save();
@@ -120,14 +120,9 @@ class HICFlipbookRenderer extends FlipbookRenderer {
           el.style.transform = transform.toString();
         }
         ctx.restore();
-        drawn = true;
       } catch (err) {
-        // Fallback
+        // Ignore
       }
-    }
-
-    if (!drawn) {
-      super.drawPageBack(ctx, pageNum, x, y, w, h);
     }
   }
 
@@ -136,8 +131,6 @@ class HICFlipbookRenderer extends FlipbookRenderer {
     if (!slide || !slide.element) return;
 
     const el = slide.element;
-    let drawn = false;
-
     if (typeof ctx.drawElementImage === 'function') {
       try {
         ctx.save();
@@ -149,14 +142,9 @@ class HICFlipbookRenderer extends FlipbookRenderer {
           el.style.transform = transform.toString();
         }
         ctx.restore();
-        drawn = true;
       } catch (err) {
-        // Fallback
+        // Ignore
       }
-    }
-
-    if (!drawn) {
-      super.drawPageFrontReflected(ctx, pageNum, x, y, w, h);
     }
   }
 }
@@ -182,49 +170,47 @@ class HICApp {
     this.init();
   }
 
+  applyDimensions() {
+    const pw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset.pageflipWidth, 10) || 1024;
+    const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset.pageflipHeight, 10) || 768;
+    const bg = this.canvas.getAttribute('data-pageflip-background') || this.canvas.dataset.pageflipBackground || 'white';
+
+    this.canvas.style.setProperty('--pageflip-width', `${pw}px`);
+    this.canvas.style.setProperty('--pageflip-height', `${ph}px`);
+    this.canvas.style.setProperty('--pageflip-background', bg);
+
+    this.slides.forEach((s) => {
+      s.pw = pw;
+      s.ph = ph;
+    });
+
+    if (this.renderer) {
+      this.renderer.setDimensions(pw, ph);
+      this.renderer.resize();
+    }
+  }
+
   init() {
+    if (!this.canvas.hasAttribute('layoutsubtree')) {
+      this.canvas.setAttribute('layoutsubtree', '');
+    }
+
     // 1. Extract slides from canvas child elements
     const slideElements = Array.from(this.canvas.querySelectorAll('.slide'));
     this.slides = slideElements.map((el, index) => {
-      const pageNum = index + 1;
-      const bgEl = el.querySelector('.bg');
-      let imgUrl = '';
-      if (bgEl) {
-        const bgStyle = bgEl.style.backgroundImage || '';
-        const match = bgStyle.match(/url\(["']?([^"']+)["']?\)/);
-        if (match && match[1]) {
-          imgUrl = match[1].replace(/^\//, ''); // normalize relative path
-        }
-      }
-
-      // Read dimensions from span attributes or default to 1024x768
-      const spanEl = el.querySelector('.texts span, .text span');
-      const pw = spanEl ? parseInt(spanEl.getAttribute('page-width') || spanEl.style.getPropertyValue('--page-width'), 10) || 1024 : 1024;
-      const ph = spanEl ? parseInt(spanEl.getAttribute('page-height') || spanEl.style.getPropertyValue('--page-height'), 10) || 768 : 768;
-
       return {
-        pageNum,
+        pageNum: index + 1,
         element: el,
-        imgUrl,
-        pw,
-        ph
+        pw: 1024,
+        ph: 768
       };
     });
 
-    const totalPages = this.slides.length || 6;
-    const pw = this.slides[0]?.pw || 1024;
-    const ph = this.slides[0]?.ph || 768;
-
-    // 2. Initialize HIC Canvas Renderer & Engine
+    // 2. Initialize HIC Canvas Renderer & Engine with dimensions from canvas attributes
     this.renderer = new HICFlipbookRenderer(this.canvas, this.slides);
-    this.renderer.setDimensions(pw, ph);
+    this.applyDimensions();
 
-    // Preload fallback images for browsers without drawElementImage
-    this.slides.forEach((s) => {
-      if (s.imgUrl) {
-        this.renderer.preloadImage(s.pageNum, s.imgUrl);
-      }
-    });
+    const totalPages = this.slides.length || 6;
 
     this.flipbook = new Flipbook(this.renderer, {
       totalPages,
@@ -234,14 +220,25 @@ class HICApp {
     this.flipbook.totalPages = totalPages;
     this.renderer.resize();
 
-    // 3. Handle canvas resize with ResizeObserver
+    // 3. Observe attribute changes for dynamic width/height/background
+    const attrObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && (m.attributeName === 'data-pageflip-width' || m.attributeName === 'data-pageflip-height' || m.attributeName === 'data-pageflip-background')) {
+          this.applyDimensions();
+          this.renderer.render(this.flipbook.getState());
+        }
+      }
+    });
+    attrObserver.observe(this.canvas, { attributes: true, attributeFilter: ['data-pageflip-width', 'data-pageflip-height', 'data-pageflip-background'] });
+
+    // 4. Handle canvas resize with ResizeObserver
     const observer = new ResizeObserver(() => {
       this.renderer.resize();
       this.renderer.render(this.flipbook.getState());
     });
     observer.observe(this.container || this.canvas);
 
-    // 4. Handle canvas paint & selection events
+    // 5. Handle canvas paint & selection events
     const handlePaint = () => {
       this.renderer.render(this.flipbook.getState());
     };
@@ -262,7 +259,7 @@ class HICApp {
       }
     });
 
-    // 5. Setup UI bindings
+    // 6. Setup UI bindings
     this.totalPagesSpan.textContent = totalPages;
     this.pageInput.max = totalPages;
     this.timelineSlider.max = totalPages;
@@ -372,3 +369,4 @@ class HICApp {
 window.addEventListener('DOMContentLoaded', () => {
   window.hicApp = new HICApp();
 });
+
