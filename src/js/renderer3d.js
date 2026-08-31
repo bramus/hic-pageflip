@@ -430,21 +430,33 @@ export class WebGLFlipbookRenderer {
 
     this.slides.forEach((s) => {
       if (!s.element) return;
+      const isActive = activePages.has(s.pageNum);
+      s.element.inert = !isActive;
 
-      if (activePages.has(s.pageNum)) {
-        s.element.inert = false;
-        s.element.style.pointerEvents = 'auto';
-
+      if (isActive) {
         const isLeft = (s.pageNum === leftPage);
         const bx = isLeft ? -this.pw : 0;
         const by = -this.ph / 2;
-
         const screenPt = this.bookToScreen(bx, by);
-        s.element.style.transform = `translate(${screenPt.x}px, ${screenPt.y}px) scale(${scale})`;
+
+        if (typeof this.canvas.updateElementGeometry === 'function') {
+          const matrix = new DOMMatrix()
+            .translate(screenPt.x, screenPt.y)
+            .scale(scale, scale);
+          try {
+            this.canvas.updateElementGeometry(s.element, matrix);
+          } catch (e) {}
+        } else {
+          s.element.style.transform = `translate(${screenPt.x}px, ${screenPt.y}px) scale(${scale})`;
+        }
       } else {
-        s.element.inert = true;
-        s.element.style.pointerEvents = 'none';
-        s.element.style.transform = 'translate(-99999px, -99999px)';
+        if (typeof this.canvas.clearElementGeometry === 'function') {
+          try {
+            this.canvas.clearElementGeometry(s.element);
+          } catch (e) {}
+        } else {
+          s.element.style.transform = `none`;
+        }
       }
     });
   }

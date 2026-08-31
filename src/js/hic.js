@@ -328,24 +328,36 @@ class HICApp {
 
     // 5. Handle canvas paint & selection events
     const handlePaint = () => {
-      this.renderer.render(this.flipbook.getState());
+      if (this.engineMode === '3d' && this.renderer && this.flipbook) {
+        const state = this.flipbook.getState();
+        const [leftPage, rightPage] = state.currentSpread;
+        if (!state.isDragging && (!state.activeFlip || state.activeFlip.isPeek)) {
+          if (leftPage > 0 && this.slides[leftPage - 1]) {
+            this.renderer.rasterizeSlideToTexture(this.slides[leftPage - 1]);
+          }
+          if (rightPage <= this.slides.length && this.slides[rightPage - 1]) {
+            this.renderer.rasterizeSlideToTexture(this.slides[rightPage - 1]);
+          }
+        }
+        this.renderer.render(state);
+      } else if (this.renderer && this.flipbook) {
+        this.renderer.render(this.flipbook.getState());
+      }
     };
     this.canvas.onpaint = handlePaint;
     this.canvas.addEventListener('paint', handlePaint);
 
-    document.addEventListener('selectionchange', () => {
+    const triggerPaintUpdate = () => {
       if (this.canvas && typeof this.canvas.requestPaint === 'function') {
         this.canvas.requestPaint();
-        requestAnimationFrame(() => {
-          this.canvas.requestPaint();
-        });
       } else {
-        this.renderer.render(this.flipbook.getState());
-        requestAnimationFrame(() => {
-          this.renderer.render(this.flipbook.getState());
-        });
+        handlePaint();
       }
-    });
+    };
+
+    document.addEventListener('selectionchange', triggerPaintUpdate);
+    document.addEventListener('focusin', triggerPaintUpdate);
+    document.addEventListener('focusout', triggerPaintUpdate);
 
     // 6. Setup UI bindings
     this.totalPagesSpan.textContent = totalPages;
