@@ -63,10 +63,16 @@
       inherits: true;
     }
 
+    @property --pageflip-background {
+      syntax: '<color>';
+      initial-value: #ffffff;
+      inherits: true;
+    }
+
     canvas {
       --pageflip-width: attr(data-pageflip-width px, 1024px);
       --pageflip-height: attr(data-pageflip-height px, 768px);
-      --pageflip-background: attr(data-pageflip-background type(color), #141721);
+      --pageflip-background: attr(data-pageflip-background type(<color>), #141721);
     }
 
     .slide {
@@ -81,7 +87,7 @@
       border: 1px solid black;
       user-select: text;
       -webkit-user-select: text;
-      background: var(--pageflip-background, #ffffff);
+      background: var(--pageflip-background, #141721);
       color: #111827;
 
       display: grid;
