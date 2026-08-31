@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PageFlip — Interactive HTML5 Canvas Flipbook</title>
+  <meta name="description" content="Realistic interactive page flip book viewer built with HTML5 Canvas and geometric paper physics.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-theme="slate">
+  <div id="app" class="app-root">
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="brand">
+          <span class="brand-icon">📖</span>
+          <span class="brand-title">PageFlip</span>
+          <span class="brand-badge">Canvas 2D</span>
+        </div>
+
+        <div class="book-picker-container">
+          <label for="book-select" class="visually-hidden">Select Book</label>
+          <select id="book-select" class="book-dropdown" title="Choose Book">
+            <!-- Populated via books.json -->
+          </select>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="book-info">
+          <h1 id="book-title" class="book-title">Loading book...</h1>
+          <span id="book-subtitle" class="book-subtitle"></span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <button id="thumbs-btn" class="icon-btn" title="Toggle Thumbnails Grid (T)" aria-label="Thumbnails">
+          <span class="icon">⊞</span>
+          <span class="btn-text">Pages</span>
+        </button>
+
+        <div class="theme-picker-wrapper">
+          <select id="theme-select" class="theme-dropdown" title="Desk Surface Theme">
+            <option value="slate">Slate Studio</option>
+            <option value="wood">Mahogany Desk</option>
+            <option value="obsidian">Obsidian Dark</option>
+            <option value="blueprint">Blueprint</option>
+          </select>
+        </div>
+
+        <button id="fullscreen-btn" class="icon-btn" title="Toggle Fullscreen (F)" aria-label="Fullscreen">
+          <span class="icon">⛶</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Viewport Stage -->
+    <main class="viewport-stage">
+      <!-- Side Nav Buttons -->
+      <button id="prev-btn" class="side-nav-btn prev" title="Previous Page (Left Arrow)" aria-label="Previous Page">
+        <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+
+      <button id="next-btn" class="side-nav-btn next" title="Next Page (Right Arrow)" aria-label="Next Page">
+        <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
+
+      <!-- Book Canvas Stage -->
+      <div id="book-container" class="book-container">
+        <canvas id="book-canvas"></canvas>
+      </div>
+
+      <!-- Quick Corner Peel Hint -->
+      <div class="flip-hint-badge">
+        <span>✨ Drag page corners or use arrow keys to flip</span>
+      </div>
+    </main>
+
+    <!-- Bottom Controls & Scrubbable Timeline -->
+    <footer class="app-footer">
+      <!-- Timeline Scrubbing Bar -->
+      <div class="timeline-container">
+        <div class="timeline-track">
+          <div id="timeline-fill" class="timeline-fill"></div>
+          <input type="range" id="timeline-slider" class="timeline-slider" min="1" max="25" value="1" step="1" aria-label="Page timeline scrubber">
+        </div>
+      </div>
+
+      <!-- Footer Control Toolbar -->
+      <div class="footer-toolbar">
+        <div class="toolbar-left">
+          <div class="page-indicator-box">
+            <span id="spread-indicator" class="spread-indicator">Cover</span>
+          </div>
+
+          <div class="page-direct-jump">
+            <label for="page-input">Page</label>
+            <input type="number" id="page-input" class="page-number-input" min="1" max="25" value="1">
+            <span class="total-pages-label">/ <span id="total-pages">25</span></span>
+          </div>
+        </div>
+
+        <div class="toolbar-center">
+          <button id="autoplay-btn" class="toolbar-pill-btn" title="Autoplay Slideshow (Space)" aria-label="Play Slideshow">
+            <span class="icon">▶</span>
+            <span class="pill-text">Autoplay</span>
+          </button>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Thumbnails Drawer -->
+    <aside id="thumbnails-drawer" class="thumbnails-drawer" aria-label="Thumbnails Drawer">
+      <div class="drawer-header">
+        <div class="drawer-title">
+          <span>📚 Book Pages</span>
+        </div>
+        <button id="close-thumbs-btn" class="close-drawer-btn" aria-label="Close Drawer">&times;</button>
+      </div>
+      <div id="thumbnails-grid" class="thumbnails-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </aside>
+  </div>
+
+  <!-- Scripts: Vanilla ES Modules -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

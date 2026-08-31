@@ -1,0 +1,26 @@
+[
+  {
+    "id": "scroll-linked-animations--fullstackeu",
+    "title": "Scroll-Driven Animations",
+    "subtitle": "Animations, controlled by scroll, running off main thread",
+    "author": "Bramus Van Damme",
+    "pageCount": 25,
+    "width": 1920,
+    "height": 1080,
+    "aspectRatio": 1.7777777777777777,
+    "path": "books/scroll-linked-animations--fullstackeu",
+    "coverImage": "books/scroll-linked-animations--fullstackeu/01.png"
+  },
+  {
+    "id": "geoshizzle",
+    "title": "Geoshizzle",
+    "subtitle": "Braintwists of a mapping aficionado",
+    "author": "Bramus Van Damme",
+    "pageCount": 87,
+    "width": 1024,
+    "height": 768,
+    "aspectRatio": 1.3333333333333333,
+    "path": "books/geoshizzle",
+    "coverImage": "books/geoshizzle/01.png"
+  }
+]
