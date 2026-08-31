@@ -54,11 +54,9 @@ export function constrainPaper(px, py, sx, sy, pw, ph) {
 
   // Bound within horizontal travel limits
   if (sx > 0) {
-    // Forward flip: cannot move further left than -pw - 20
-    x = Math.max(-pw - 10, Math.min(pw, x));
+    x = Math.max(-pw, Math.min(pw, x));
   } else {
-    // Backward flip: cannot move further right than pw + 20
-    x = Math.min(pw + 10, Math.max(-pw, x));
+    x = Math.min(pw, Math.max(-pw, x));
   }
 
   return { x, y };

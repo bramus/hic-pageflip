@@ -613,12 +613,16 @@ export class WebGLFlipbookRenderer {
     while (theta >= Math.PI - 0.05) theta -= Math.PI;
     theta = Math.max(0.15, Math.min(Math.PI - 0.15, theta));
 
-    // Cylinder radius C
-    const C = Math.max(16.0, Math.min(36.0, 22.0 + (dist / pw) * 8.0));
-
     // Midpoint fold crease base (B, A)
     const midX = (sx + px) / 2.0;
     const midY = (sy + py) / 2.0;
+
+    // Progress across page [0 = fully turned at spine, 1 = unturned at outer edge]
+    const progress = Math.max(0.0, Math.min(1.0, midX / pw));
+    // Dynamic cylinder radius C that tapers to 0 at the spine (midX = 0) and at outer edge (midX = pw)
+    // with peak 3D curl in the middle of the turn
+    const curlEnvelope = Math.sin(progress * Math.PI);
+    const C = Math.max(0.5, curlEnvelope * 28.0);
 
     const cylInfo = {
       theta,

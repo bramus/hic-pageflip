@@ -330,7 +330,7 @@ export class Flipbook {
 
     let targetPx, targetPy;
     if (complete) {
-      targetPx = flip.dir > 0 ? -pw - 15 : pw + 15;
+      targetPx = flip.dir > 0 ? -pw : pw;
       targetPy = flip.sy;
     } else {
       targetPx = flip.sx;
@@ -401,7 +401,7 @@ export class Flipbook {
         const progress = Math.min(1, elapsed / duration);
         const t = Easing.easeInOutCubic(progress);
 
-        const x = pw - (pw * 2 + 30) * t;
+        const x = pw - (pw * 2) * t;
         const arcY = Math.sin(progress * Math.PI) * (ph * 0.16);
         const y = sy - arcY;
 
@@ -452,7 +452,7 @@ export class Flipbook {
         const progress = Math.min(1, elapsed / duration);
         const t = Easing.easeInOutCubic(progress);
 
-        const x = -pw + (pw * 2 + 30) * t;
+        const x = -pw + (pw * 2) * t;
         const arcY = Math.sin(progress * Math.PI) * (ph * 0.16);
         const y = sy - arcY;
 
