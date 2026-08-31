@@ -32,7 +32,6 @@ export class WebGLFlipbookRenderer {
 
     this.meshBuffers = null;
     this.textures = new Map();
-    this.textureCanvases = new Map();
 
     this.initGL();
     this.resize();
@@ -47,11 +46,14 @@ export class WebGLFlipbookRenderer {
   }
 
   initGL() {
-    const gl = this.canvas.getContext('webgl', {
+    const glOpts = {
       alpha: true,
       antialias: true,
       premultipliedAlpha: false
-    }) || this.canvas.getContext('experimental-webgl');
+    };
+    const gl = this.canvas.getContext('webgl2', glOpts) ||
+               this.canvas.getContext('webgl', glOpts) ||
+               this.canvas.getContext('experimental-webgl', glOpts);
 
     if (!gl) {
       console.error('WebGL is not supported in this browser.');
@@ -324,90 +326,7 @@ export class WebGLFlipbookRenderer {
     if (!this.gl || !slide || !slide.element) return;
     const pageNum = slide.pageNum;
     const gl = this.gl;
-    const pw = this.pw;
-    const ph = this.ph;
-
-    let offCanvas = this.textureCanvases.get(pageNum);
-    if (!offCanvas) {
-      offCanvas = document.createElement('canvas');
-      offCanvas.width = pw;
-      offCanvas.height = ph;
-      this.textureCanvases.set(pageNum, offCanvas);
-    }
-
-    const ctx = offCanvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, pw, ph);
-
-    const titleEl = slide.element.querySelector('h1');
-    const titleText = titleEl ? titleEl.textContent : `Page ${pageNum}`;
-    const pEls = Array.from(slide.element.querySelectorAll('p'));
-    const liEls = Array.from(slide.element.querySelectorAll('li'));
-
-    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(1, 1, pw - 2, ph - 2);
-
-    ctx.save();
-    ctx.font = 'bold 44px Outfit, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-
-    const grad = ctx.createLinearGradient(pw / 2 - 200, 0, pw / 2 + 200, 0);
-    grad.addColorStop(0, '#4f80ff');
-    grad.addColorStop(1, '#845ef7');
-    ctx.fillStyle = grad;
-    ctx.fillText(titleText, pw / 2, 120);
-    ctx.restore();
-
-    ctx.save();
-    ctx.font = '22px Outfit, sans-serif';
-    ctx.fillStyle = '#374151';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-
-    let currentY = 210;
-    pEls.forEach((p) => {
-      const text = p.textContent.trim();
-      const lines = this.wrapText(ctx, text, pw - 240);
-      lines.forEach((line) => {
-        ctx.fillText(line, pw / 2, currentY);
-        currentY += 34;
-      });
-      currentY += 12;
-    });
-
-    if (liEls.length > 0) {
-      ctx.textAlign = 'left';
-      ctx.font = '20px Outfit, sans-serif';
-      ctx.fillStyle = '#1f2937';
-      const listStartX = pw / 2 - 220;
-      liEls.forEach((li) => {
-        ctx.fillText('•  ' + li.textContent.trim(), listStartX, currentY);
-        currentY += 32;
-      });
-    }
-    ctx.restore();
-
-    // Center spine gutter shadow along inner edge
-    const gutterWidth = 36;
-    if (pageNum % 2 === 1) {
-      // Right page: inner spine on the left (x=0)
-      const gutterGrad = ctx.createLinearGradient(0, 0, gutterWidth, 0);
-      gutterGrad.addColorStop(0, 'rgba(0, 0, 0, 0.28)');
-      gutterGrad.addColorStop(0.35, 'rgba(0, 0, 0, 0.08)');
-      gutterGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = gutterGrad;
-      ctx.fillRect(0, 0, gutterWidth, ph);
-    } else {
-      // Left page: inner spine on the right (x=pw)
-      const gutterGrad = ctx.createLinearGradient(pw - gutterWidth, 0, pw, 0);
-      gutterGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-      gutterGrad.addColorStop(0.65, 'rgba(0, 0, 0, 0.08)');
-      gutterGrad.addColorStop(1, 'rgba(0, 0, 0, 0.28)');
-      ctx.fillStyle = gutterGrad;
-      ctx.fillRect(pw - gutterWidth, 0, gutterWidth, ph);
-    }
+    const el = slide.element;
 
     let texture = this.textures.get(pageNum);
     if (!texture) {
@@ -416,30 +335,43 @@ export class WebGLFlipbookRenderer {
     }
 
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, offCanvas);
+
+    // Direct HTML-in-Canvas WebGL capture via gl.texElementImage2D
+    if (typeof gl.texElementImage2D === 'function') {
+      const isWebGL2 = (typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext);
+      const internalFormat = isWebGL2 ? (gl.RGBA8 || gl.RGBA) : gl.RGBA;
+
+      let captured = false;
+
+      // 1. Signature A (3 args with validated internalFormat): (target, internalformat, element)
+      if (!captured) {
+        try {
+          gl.texElementImage2D(gl.TEXTURE_2D, internalFormat, el);
+          captured = true;
+        } catch (e) {}
+      }
+
+      // 2. Signature B (6 args): (target, level, internalformat, format, type, element)
+      if (!captured) {
+        try {
+          gl.texElementImage2D(gl.TEXTURE_2D, 0, internalFormat, gl.RGBA, gl.UNSIGNED_BYTE, el);
+          captured = true;
+        } catch (e) {}
+      }
+
+      // 3. Signature C (2 args): (target, element)
+      if (!captured) {
+        try {
+          gl.texElementImage2D(gl.TEXTURE_2D, el);
+          captured = true;
+        } catch (e) {}
+      }
+    }
+
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  }
-
-  wrapText(ctx, text, maxWidth) {
-    const words = text.split(' ');
-    const lines = [];
-    let currentLine = '';
-
-    for (const word of words) {
-      const testLine = currentLine ? currentLine + ' ' + word : word;
-      const metrics = ctx.measureText(testLine);
-      if (metrics.width > maxWidth && currentLine) {
-        lines.push(currentLine);
-        currentLine = word;
-      } else {
-        currentLine = testLine;
-      }
-    }
-    if (currentLine) lines.push(currentLine);
-    return lines;
   }
 
   resize() {
@@ -745,7 +677,6 @@ export class WebGLFlipbookRenderer {
       }
     }
     this.textures.clear();
-    this.textureCanvases.clear();
   }
 
   preloadImage(pageNum, url) {
