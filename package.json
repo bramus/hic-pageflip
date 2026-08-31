@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "npx -y serve src",
-    "dev": "npx -y serve src"
+    "dev": "npx -y serve src",
+    "deploy": "netlify deploy --dir=src --prod"
   },
   "keywords": [
     "pageflip",
