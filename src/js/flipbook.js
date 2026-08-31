@@ -54,6 +54,12 @@ export class Flipbook {
     };
   }
 
+  setRenderer(renderer) {
+    this.renderer = renderer;
+    this.canvas = renderer.canvas;
+    this.bindEvents();
+  }
+
   setBook(bookMeta) {
     this.bookId = bookMeta.id;
     this.totalPages = bookMeta.pageCount;

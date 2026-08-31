@@ -5,6 +5,7 @@
  */
 
 import { FlipbookRenderer } from './renderer.js';
+import { WebGLFlipbookRenderer } from './renderer3d.js';
 import { Flipbook } from './flipbook.js';
 
 /**
@@ -161,8 +162,9 @@ class HICApp {
     this.timelineFill = document.getElementById('timeline-fill');
     this.spreadIndicator = document.getElementById('spread-indicator');
     this.themeSelect = document.getElementById('theme-select');
-    this.fullscreenBtn = document.getElementById('fullscreen-btn');
+    this.engineSelect = document.getElementById('engine-select');
 
+    this.engineMode = '2d'; // '2d' or '3d'
     this.slides = [];
     this.renderer = null;
     this.flipbook = null;
@@ -188,6 +190,50 @@ class HICApp {
       this.renderer.setDimensions(pw, ph);
       this.renderer.resize();
     }
+  }
+
+  switchEngine(engineMode) {
+    if (this.engineMode === engineMode) return;
+    this.engineMode = engineMode;
+
+    const oldCanvas = this.canvas;
+    const newCanvas = oldCanvas.cloneNode(true);
+    oldCanvas.parentNode.replaceChild(newCanvas, oldCanvas);
+    this.canvas = newCanvas;
+
+    if (!this.canvas.hasAttribute('layoutsubtree')) {
+      this.canvas.setAttribute('layoutsubtree', '');
+    }
+
+    const slideElements = Array.from(this.canvas.querySelectorAll('.slide'));
+    this.slides = slideElements.map((el, index) => ({
+      pageNum: index + 1,
+      element: el,
+      pw: 1024,
+      ph: 768
+    }));
+
+    if (engineMode === '3d') {
+      this.renderer = new WebGLFlipbookRenderer(this.canvas, this.slides);
+    } else {
+      this.renderer = new HICFlipbookRenderer(this.canvas, this.slides);
+    }
+
+    this.applyDimensions();
+
+    const curPage = this.flipbook ? this.flipbook.currentPage : 1;
+    if (this.flipbook) {
+      this.flipbook.setRenderer(this.renderer);
+      this.flipbook.gotoPage(curPage);
+    }
+    this.renderer.resize();
+    this.renderer.render(this.flipbook.getState());
+
+    const handlePaint = () => {
+      this.renderer.render(this.flipbook.getState());
+    };
+    this.canvas.onpaint = handlePaint;
+    this.canvas.addEventListener('paint', handlePaint);
   }
 
   checkHICSupport() {
@@ -314,13 +360,9 @@ class HICApp {
       });
     }
 
-    if (this.fullscreenBtn) {
-      this.fullscreenBtn.addEventListener('click', () => {
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen();
-        } else {
-          document.exitFullscreen();
-        }
+    if (this.engineSelect) {
+      this.engineSelect.addEventListener('change', (e) => {
+        this.switchEngine(e.target.value);
       });
     }
 

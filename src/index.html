@@ -70,6 +70,7 @@
       width: var(--pageflip-width, 1024px);
       overflow: hidden;
       box-sizing: border-box;
+      border: 1px solid black;
       user-select: text;
       -webkit-user-select: text;
       background: var(--pageflip-background, #ffffff);
@@ -210,6 +211,13 @@
       </div>
 
       <div class="header-right">
+        <div class="engine-picker-wrapper">
+          <select id="engine-select" class="theme-dropdown" title="Rendering Engine">
+            <option value="2d">Engine: 2D Canvas (Reflection)</option>
+            <option value="3d">Engine: 3D WebGL (Conical Mesh)</option>
+          </select>
+        </div>
+
         <div class="theme-picker-wrapper">
           <select id="theme-select" class="theme-dropdown" title="Desk Surface Theme">
             <option value="slate">Slate Studio</option>
