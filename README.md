@@ -104,6 +104,17 @@ hic-pageflip:defined {
 }
 ```
 
+Also, don’t forget to size your `<hic-pageflip>` element, otherwise it will collapse to `0x0`.
+
+```css
+hic-pageflip:defined {
+  display: block;
+  width: 100%;
+  max-width: 1024px;
+  aspect-ratio: 1024 / 768;
+}
+```
+
 ---
 
 ## Custom Element Reference
