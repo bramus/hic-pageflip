@@ -1,10 +1,10 @@
 /**
- * HTML-in-Canvas (HIC) Application Controller for PageFlip.
+ * HTML-in-Canvas (HIC) Application Controller for Pageflip.
  * Manages UI controls, theme selector, URL parameters, keyboard shortcuts,
- * and delegates all flipbook lifecycle & rendering interactions exclusively to Flipbook.
+ * and delegates all pageflip lifecycle & rendering interactions exclusively to Pageflip.
  */
 
-import { Flipbook } from './flipbook.js';
+import { Pageflip } from './pageflip.js';
 
 export class HICApp {
   constructor() {
@@ -21,7 +21,7 @@ export class HICApp {
 
     this.engineMode = '2d'; // '2d' or '3d'
     this.slides = [];
-    this.flipbook = null;
+    this.pageflip = null;
 
     this.init();
   }
@@ -35,9 +35,9 @@ export class HICApp {
     this.canvas.style.setProperty('--pageflip-height', `${ph}px`);
     this.canvas.style.setProperty('--pageflip-background', bg);
 
-    if (this.flipbook) {
-      this.flipbook.setDimensions(pw, ph);
-      this.flipbook.resize();
+    if (this.pageflip) {
+      this.pageflip.setDimensions(pw, ph);
+      this.pageflip.resize();
     }
   }
 
@@ -45,9 +45,9 @@ export class HICApp {
     if (this.engineMode === engineMode) return;
     this.engineMode = engineMode;
 
-    if (this.flipbook) {
-      this.flipbook.switchEngine(engineMode);
-      this.canvas = this.flipbook.canvas;
+    if (this.pageflip) {
+      this.pageflip.switchEngine(engineMode);
+      this.canvas = this.pageflip.canvas;
       this.applyDimensions();
     }
   }
@@ -111,21 +111,21 @@ export class HICApp {
 
     const totalPages = this.slides.length || 6;
 
-    // 4. Initialize Flipbook (which creates and manages its renderer)
-    this.flipbook = new Flipbook(this.canvas, this.slides, {
+    // 4. Initialize Pageflip (which creates and manages its engine)
+    this.pageflip = new Pageflip(this.canvas, this.slides, {
       engine: this.engineMode,
       totalPages,
       onPageChange: (state) => this.onPageChanged(state)
     });
 
-    this.flipbook.resize();
+    this.pageflip.resize();
 
     // 5. Observe attribute changes for dynamic width/height/background
     const attrObserver = new MutationObserver((mutations) => {
       for (const m of mutations) {
         if (m.type === 'attributes' && (m.attributeName === 'data-pageflip-width' || m.attributeName === 'data-pageflip-height' || m.attributeName === 'data-pageflip-background')) {
           this.applyDimensions();
-          this.flipbook.render();
+          this.pageflip.render();
         }
       }
     });
@@ -133,14 +133,14 @@ export class HICApp {
 
     // 6. Handle container resize with ResizeObserver
     const observer = new ResizeObserver(() => {
-      this.flipbook.resize();
-      this.flipbook.render();
+      this.pageflip.resize();
+      this.pageflip.render();
     });
     observer.observe(this.container || this.canvas);
 
     // 7. Handle selection and focus updates
     const triggerPaintUpdate = () => {
-      this.flipbook.requestRender();
+      this.pageflip.requestRender();
     };
     document.addEventListener('selectionchange', triggerPaintUpdate);
     document.addEventListener('focusin', triggerPaintUpdate);
@@ -152,21 +152,21 @@ export class HICApp {
     this.timelineSlider.max = totalPages;
 
     this.bindEvents();
-    this.onPageChanged(this.flipbook.getState());
+    this.onPageChanged(this.pageflip.getState());
   }
 
   bindEvents() {
     window.addEventListener('resize', () => {
-      this.flipbook.resize();
-      this.flipbook.render();
+      this.pageflip.resize();
+      this.pageflip.render();
     });
 
-    this.prevBtn.addEventListener('click', () => this.flipbook.flipBackward());
-    this.nextBtn.addEventListener('click', () => this.flipbook.flipForward());
+    this.prevBtn.addEventListener('click', () => this.pageflip.flipBackward());
+    this.nextBtn.addEventListener('click', () => this.pageflip.flipForward());
 
     this.pageInput.addEventListener('change', (e) => {
       const p = parseInt(e.target.value, 10);
-      if (!isNaN(p)) this.flipbook.gotoPage(p);
+      if (!isNaN(p)) this.pageflip.gotoPage(p);
     });
 
     this.timelineSlider.addEventListener('input', (e) => {
@@ -176,7 +176,7 @@ export class HICApp {
 
     this.timelineSlider.addEventListener('change', (e) => {
       const p = parseInt(e.target.value, 10);
-      this.flipbook.gotoPage(p);
+      this.pageflip.gotoPage(p);
     });
 
     if (this.themeSelect) {
@@ -195,7 +195,7 @@ export class HICApp {
           localStorage.setItem('pageflip_theme', theme);
         } catch (err) {}
 
-        this.flipbook.reloadTextures();
+        this.pageflip.reloadTextures();
       });
     }
 
@@ -204,16 +204,16 @@ export class HICApp {
       if (e.target.tagName === 'INPUT') return;
       if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
         e.preventDefault();
-        this.flipbook.flipBackward();
+        this.pageflip.flipBackward();
       } else if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
         e.preventDefault();
-        this.flipbook.flipForward();
+        this.pageflip.flipForward();
       } else if (e.key === 'Home') {
         e.preventDefault();
-        this.flipbook.gotoPage(1);
+        this.pageflip.gotoPage(1);
       } else if (e.key === 'End') {
         e.preventDefault();
-        this.flipbook.gotoPage(this.flipbook.totalPages);
+        this.pageflip.gotoPage(this.pageflip.totalPages);
       }
     });
   }
@@ -243,11 +243,11 @@ export class HICApp {
     this.prevBtn.disabled = left <= 0;
     this.nextBtn.disabled = right > total;
 
-    this.flipbook.requestRender();
+    this.pageflip.requestRender();
   }
 
   updateTimelineProgress(pageNum) {
-    const total = this.flipbook.totalPages || 1;
+    const total = this.pageflip.totalPages || 1;
     const pct = Math.max(0, Math.min(100, (pageNum / total) * 100));
     if (this.timelineFill) {
       this.timelineFill.style.width = `${pct}%`;

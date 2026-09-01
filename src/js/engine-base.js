@@ -1,9 +1,9 @@
 /**
- * Base Flipbook Renderer
- * Shared state and coordinate mapping for 2D and 3D HTML-in-Canvas renderers.
+ * Base Pageflip Engine (BaseEngine)
+ * Shared state, viewport management, and coordinate mapping for 2D and 3D HTML-in-Canvas engines.
  */
 
-export class BaseRenderer {
+export class BaseEngine {
   constructor(canvas, slides = []) {
     this.canvas = canvas;
     this.slides = slides;

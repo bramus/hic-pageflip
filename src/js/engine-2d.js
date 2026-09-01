@@ -1,13 +1,13 @@
 /**
- * HTML-in-Canvas 2D Flipbook Renderer (HICFlipbookRenderer2D)
+ * HTML-in-Canvas 2D Pageflip Engine (HICPageflipEngine2D)
  * Implements 2D geometric fold clipping, affine reflection matrices,
  * fold drop shadows, spine shadows, and direct DOM element drawing via ctx.drawElementImage.
  */
 
-import { BaseRenderer } from './renderer-base.js';
+import { BaseEngine } from './engine-base.js';
 import { calculateFold, clamp } from './math.js';
 
-export class HICFlipbookRenderer2D extends BaseRenderer {
+export class HICPageflipEngine2D extends BaseEngine {
   constructor(canvas, slides = []) {
     super(canvas, slides);
     this.ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });

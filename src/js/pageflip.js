@@ -1,14 +1,14 @@
 /**
- * Flipbook Controller & Interaction Engine.
+ * Pageflip Controller & Interaction Engine.
  * Manages state, gesture interactions (mouse/touch), corner hover peeks,
- * spring-eased animations, page navigation, and renderer coordination.
+ * spring-eased animations, page navigation, and active engine coordination.
  */
 
 import { constrainPaper, Easing, clamp } from './math.js';
-import { HICFlipbookRenderer2D } from './renderer-2d.js';
-import { HICFlipbookRenderer3D } from './renderer-3d.js';
+import { HICPageflipEngine2D } from './engine-2d.js';
+import { HICPageflipEngine3D } from './engine-3d.js';
 
-export class Flipbook {
+export class Pageflip {
   constructor(canvas, slides = [], options = {}) {
     this.canvas = canvas;
     this.slides = slides;
@@ -31,16 +31,16 @@ export class Flipbook {
     this.onPageChange = options.onPageChange || null;
     this.onFlipProgress = options.onFlipProgress || null;
 
-    this.createRenderer(this.engineMode);
+    this.createEngine(this.engineMode);
     this.bindEvents();
     this.startLoop();
   }
 
-  createRenderer(engineMode) {
+  createEngine(engineMode) {
     if (engineMode === '3d') {
-      this.renderer = new HICFlipbookRenderer3D(this.canvas, this.slides);
+      this.engine = new HICPageflipEngine3D(this.canvas, this.slides);
     } else {
-      this.renderer = new HICFlipbookRenderer2D(this.canvas, this.slides);
+      this.engine = new HICPageflipEngine2D(this.canvas, this.slides);
     }
   }
 
@@ -68,18 +68,18 @@ export class Flipbook {
       ph: ph
     }));
 
-    this.createRenderer(engineMode);
+    this.createEngine(engineMode);
     this.setDimensions(pw, ph);
     this.bindEvents();
     this.render();
   }
 
   get pw() {
-    return this.renderer ? this.renderer.pw : 1024;
+    return this.engine ? this.engine.pw : 1024;
   }
 
   get ph() {
-    return this.renderer ? this.renderer.ph : 768;
+    return this.engine ? this.engine.ph : 768;
   }
 
   setDimensions(pw, ph) {
@@ -87,52 +87,52 @@ export class Flipbook {
       s.pw = pw;
       s.ph = ph;
     });
-    if (this.renderer) {
-      this.renderer.setDimensions(pw, ph);
+    if (this.engine) {
+      this.engine.setDimensions(pw, ph);
     }
   }
 
   resize() {
-    if (this.renderer) {
-      this.renderer.resize();
+    if (this.engine) {
+      this.engine.resize();
     }
   }
 
   render() {
-    if (this.renderer) {
-      this.renderer.render(this.getState());
+    if (this.engine) {
+      this.engine.render(this.getState());
     }
   }
 
   requestRender() {
     if (this.canvas && typeof this.canvas.requestPaint === 'function') {
       this.canvas.requestPaint();
-    } else if (this.renderer) {
-      this.renderer.requestRender(() => this.render());
+    } else if (this.engine) {
+      this.engine.requestRender(() => this.render());
     }
   }
 
   handlePaint() {
-    if (this.engineMode === '3d' && this.renderer) {
+    if (this.engineMode === '3d' && this.engine) {
       const state = this.getState();
       const [leftPage, rightPage] = state.currentSpread;
       if (!state.isDragging && (!state.activeFlip || state.activeFlip.isPeek)) {
         if (leftPage > 0 && this.slides[leftPage - 1]) {
-          this.renderer.rasterizeSlideToTexture(this.slides[leftPage - 1]);
+          this.engine.rasterizeSlideToTexture(this.slides[leftPage - 1]);
         }
         if (rightPage <= this.slides.length && this.slides[rightPage - 1]) {
-          this.renderer.rasterizeSlideToTexture(this.slides[rightPage - 1]);
+          this.engine.rasterizeSlideToTexture(this.slides[rightPage - 1]);
         }
       }
-      this.renderer.render(state);
-    } else if (this.renderer) {
-      this.renderer.render(this.getState());
+      this.engine.render(state);
+    } else if (this.engine) {
+      this.engine.render(this.getState());
     }
   }
 
   reloadTextures() {
-    if (this.renderer && typeof this.renderer.preloadSlideTextures === 'function') {
-      this.renderer.isReloadingTextures = true;
+    if (this.engine && typeof this.engine.preloadSlideTextures === 'function') {
+      this.engine.isReloadingTextures = true;
       this.slides.forEach((s) => {
         if (s.element) {
           s.element.style.transform = 'none';
@@ -141,8 +141,8 @@ export class Flipbook {
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          this.renderer.preloadSlideTextures();
-          this.renderer.isReloadingTextures = false;
+          this.engine.preloadSlideTextures();
+          this.engine.isReloadingTextures = false;
           this.render();
         });
       });
@@ -221,7 +221,7 @@ export class Flipbook {
   }
 
   handlePointerMove(e) {
-    if (this.animation || !this.renderer) return;
+    if (this.animation || !this.engine) return;
 
     const rect = this.canvas.getBoundingClientRect();
     const screenX = e.clientX - rect.left;
@@ -235,7 +235,7 @@ export class Flipbook {
     };
     this.lastPointer = { x: screenX, y: screenY, time: now };
 
-    const bookPt = this.renderer.screenToBook(screenX, screenY);
+    const bookPt = this.engine.screenToBook(screenX, screenY);
 
     if (this.isDragging && this.activeFlip) {
       this.updateDrag(bookPt.x, bookPt.y);
@@ -257,12 +257,12 @@ export class Flipbook {
   }
 
   handlePointerDown(e) {
-    if (e.button !== 0 || this.animation || !this.renderer) return;
+    if (e.button !== 0 || this.animation || !this.engine) return;
 
     const rect = this.canvas.getBoundingClientRect();
     const screenX = e.clientX - rect.left;
     const screenY = e.clientY - rect.top;
-    const bookPt = this.renderer.screenToBook(screenX, screenY);
+    const bookPt = this.engine.screenToBook(screenX, screenY);
 
     const corner = this.detectCorner(bookPt.x, bookPt.y);
     if (corner) {
@@ -284,12 +284,12 @@ export class Flipbook {
   }
 
   handleTouchStart(e) {
-    if (e.touches.length !== 1 || this.animation || !this.renderer) return;
+    if (e.touches.length !== 1 || this.animation || !this.engine) return;
     const touch = e.touches[0];
     const rect = this.canvas.getBoundingClientRect();
     const screenX = touch.clientX - rect.left;
     const screenY = touch.clientY - rect.top;
-    const bookPt = this.renderer.screenToBook(screenX, screenY);
+    const bookPt = this.engine.screenToBook(screenX, screenY);
 
     const corner = this.detectCorner(bookPt.x, bookPt.y);
     if (corner) {
@@ -299,7 +299,7 @@ export class Flipbook {
   }
 
   handleTouchMove(e) {
-    if (!this.isDragging || e.touches.length !== 1 || !this.renderer) return;
+    if (!this.isDragging || e.touches.length !== 1 || !this.engine) return;
     e.preventDefault();
     const touch = e.touches[0];
     const rect = this.canvas.getBoundingClientRect();
@@ -314,7 +314,7 @@ export class Flipbook {
     };
     this.lastPointer = { x: screenX, y: screenY, time: now };
 
-    const bookPt = this.renderer.screenToBook(screenX, screenY);
+    const bookPt = this.engine.screenToBook(screenX, screenY);
     this.updateDrag(bookPt.x, bookPt.y);
   }
 

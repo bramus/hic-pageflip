@@ -1,13 +1,13 @@
 /**
- * HTML-in-Canvas 3D WebGL Flipbook Renderer (HICFlipbookRenderer3D)
+ * HTML-in-Canvas 3D WebGL Pageflip Engine (HICPageflipEngine3D)
  * Complete implementation based on Chris Luke's "The Anatomy of a Page Curl":
  * https://blog.flirble.org/2010/10/08/the-anatomy-of-a-page-curl/
  * Captures live DOM elements using gl.texElementImage2D and maps geometry via canvas.updateElementGeometry.
  */
 
-import { BaseRenderer } from './renderer-base.js';
+import { BaseEngine } from './engine-base.js';
 
-export class HICFlipbookRenderer3D extends BaseRenderer {
+export class HICPageflipEngine3D extends BaseEngine {
   constructor(canvas, slides = []) {
     super(canvas, slides);
     this.gl = null;
