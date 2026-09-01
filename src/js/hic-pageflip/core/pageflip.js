@@ -520,8 +520,8 @@ export class Pageflip {
     this.activeFlip = {
       sx,
       sy,
-      px: sx - 10,
-      py: sy - 10,
+      px: sx,
+      py: sy,
       dir: 1,
       isPeek: false
     };
@@ -538,7 +538,7 @@ export class Pageflip {
         const t = Easing.easeInOutCubic(progress);
 
         const x = pw - (pw * 2) * t;
-        const arcY = Math.sin(progress * Math.PI) * (ph * 0.16);
+        const arcY = Math.sin(t * Math.PI) * (ph * 0.16);
         const y = sy - arcY;
 
         const constrained = constrainPaper(x, y, sx, sy, pw, ph);
@@ -570,8 +570,8 @@ export class Pageflip {
     this.activeFlip = {
       sx,
       sy,
-      px: sx + 10,
-      py: sy - 10,
+      px: sx,
+      py: sy,
       dir: -1,
       isPeek: false
     };
@@ -588,7 +588,7 @@ export class Pageflip {
         const t = Easing.easeInOutCubic(progress);
 
         const x = -pw + (pw * 2) * t;
-        const arcY = Math.sin(progress * Math.PI) * (ph * 0.16);
+        const arcY = Math.sin(t * Math.PI) * (ph * 0.16);
         const y = sy - arcY;
 
         const constrained = constrainPaper(x, y, sx, sy, pw, ph);

@@ -76,6 +76,7 @@ export class HICPageflipEngine3D extends BaseEngine {
       uniform vec2 uPageSize;   // (pw, ph)
       uniform float uPageSide;  // -1.0 for left page, 1.0 for right page
       uniform float uIsActive;  // 1.0 if curling, 0.0 if flat
+      uniform float uDepthOffset; // Negative Z offset for underneath pages to prevent Z-fighting
 
       // Chris Luke's Cylindrical Parameters
       uniform float uTheta;     // Cylinder angle in x,y plane
@@ -184,6 +185,7 @@ export class HICPageflipEngine3D extends BaseEngine {
         }
 
         vNormal = normalize(norm);
+        v1.z += uDepthOffset;
         vWorldPos = v1;
         gl_Position = uProjection * uModelView * vec4(v1, 1.0);
       }
@@ -483,10 +485,10 @@ export class HICPageflipEngine3D extends BaseEngine {
     if (!flip) {
       // Stationary double spread
       if (leftPage > 0) {
-        this.drawDoubleSidedPage(leftPage, leftPage, -1.0, 0.0, null);
+        this.drawDoubleSidedPage(leftPage, leftPage, -1.0, 0.0, null, 0.0);
       }
       if (rightPage <= state.totalPages) {
-        this.drawDoubleSidedPage(rightPage, rightPage, 1.0, 0.0, null);
+        this.drawDoubleSidedPage(rightPage, rightPage, 1.0, 0.0, null, 0.0);
       }
       return;
     }
@@ -495,22 +497,22 @@ export class HICPageflipEngine3D extends BaseEngine {
     if (flip.dir > 0) {
       // 1. Stationary Left Page (N-1)
       if (leftPage > 0) {
-        this.drawDoubleSidedPage(leftPage, leftPage, -1.0, 0.0, null);
+        this.drawDoubleSidedPage(leftPage, leftPage, -1.0, 0.0, null, 0.0);
       }
-      // 2. Underneath Page (N+2) revealed as page N turns
+      // 2. Underneath Page (N+2) revealed as page N turns (placed at lower Z to prevent Z-fighting)
       if (rightPage + 2 <= state.totalPages) {
-        this.drawDoubleSidedPage(rightPage + 2, rightPage + 2, 1.0, 0.0, null);
+        this.drawDoubleSidedPage(rightPage + 2, rightPage + 2, 1.0, 0.0, null, -1.5);
       }
       // 3. Turning Sheet (Front = N, Back = N+1)
       this.drawTurningSheet(rightPage, rightPage + 1, 1.0, flip);
     } else {
       // 1. Stationary Right Page (N)
       if (rightPage <= state.totalPages) {
-        this.drawDoubleSidedPage(rightPage, rightPage, 1.0, 0.0, null);
+        this.drawDoubleSidedPage(rightPage, rightPage, 1.0, 0.0, null, 0.0);
       }
-      // 2. Underneath Page (N-2) revealed as page N-1 turns back
+      // 2. Underneath Page (N-2) revealed as page N-1 turns back (placed at lower Z to prevent Z-fighting)
       if (leftPage - 2 > 0) {
-        this.drawDoubleSidedPage(leftPage - 2, leftPage - 2, -1.0, 0.0, null);
+        this.drawDoubleSidedPage(leftPage - 2, leftPage - 2, -1.0, 0.0, null, -1.5);
       }
       // 3. Turning Sheet (Front = N-1, Back = N)
       this.drawTurningSheet(leftPage, leftPage - 1, -1.0, flip);
@@ -528,7 +530,7 @@ export class HICPageflipEngine3D extends BaseEngine {
     return tex;
   }
 
-  drawDoubleSidedPage(frontPageNum, backPageNum, pageSide, isActive, cylInfo) {
+  drawDoubleSidedPage(frontPageNum, backPageNum, pageSide, isActive, cylInfo, depthOffset = 0.0) {
     const gl = this.gl;
     const texFront = this.getTexture(frontPageNum);
     const texBack = this.getTexture(backPageNum) || texFront;
@@ -546,6 +548,7 @@ export class HICPageflipEngine3D extends BaseEngine {
 
     gl.uniform1f(gl.getUniformLocation(this.program, 'uPageSide'), pageSide);
     gl.uniform1f(gl.getUniformLocation(this.program, 'uIsActive'), isActive);
+    gl.uniform1f(gl.getUniformLocation(this.program, 'uDepthOffset'), depthOffset);
 
     if (cylInfo) {
       gl.uniform1f(gl.getUniformLocation(this.program, 'uTheta'), cylInfo.theta);
@@ -594,7 +597,11 @@ export class HICPageflipEngine3D extends BaseEngine {
     const dx = px - sx;
     const dy = py - sy;
     const dist = Math.hypot(dx, dy);
-    if (dist < 0.5) return;
+    if (dist < 0.5) {
+      // Draw as flat page rather than dropping the frame and exposing the page underneath
+      this.drawDoubleSidedPage(frontPageNum, backPageNum, pageSide, 0.0, null, 0.0);
+      return;
+    }
 
     // Chris Luke's Cylinder angle theta: perpendicular bisector of the drag vector
     const angle = Math.atan2(dy, dx);
