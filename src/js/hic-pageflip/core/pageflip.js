@@ -16,7 +16,10 @@ export class Pageflip {
     this.totalPages = options.totalPages || slides.length || 6;
 
     // Current page: 0 = closed (cover on right), 2 = pages 2 & 3, etc.
-    this.currentPage = 0;
+    const rawPage = options.page !== undefined ? options.page : (options.currentPage !== undefined ? options.currentPage : 0);
+    const initialPage = typeof rawPage === 'string' ? (parseInt(rawPage, 10) || 0) : (Number(rawPage) || 0);
+    const cleanTarget = clamp(Math.floor(initialPage), 0, this.totalPages);
+    this.currentPage = cleanTarget <= 1 ? 0 : Math.floor(cleanTarget / 2) * 2;
     this.activeFlip = null; // { sx, sy, px, py, dir, isPeek, animating, ... }
     this.hoverCorner = null; // 'tr' | 'br' | 'tl' | 'bl' | null
     this.isDragging = false;
@@ -51,6 +54,8 @@ export class Pageflip {
     if (this.engine) {
       this.engine.slides = this.slides;
     }
+    const cleanTarget = clamp(this.currentPage, 0, this.totalPages);
+    this.currentPage = cleanTarget <= 1 ? 0 : Math.floor(cleanTarget / 2) * 2;
   }
 
   switchEngine(engineMode) {

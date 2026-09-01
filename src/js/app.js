@@ -48,6 +48,14 @@ export class HICApp {
     this.engineMode = engineParam === '3d' ? '3d' : '2d';
     this.pageflip.engineMode = this.engineMode;
 
+    const pageParam = urlParams.get('page');
+    if (pageParam !== null) {
+      const p = parseInt(pageParam, 10);
+      if (!isNaN(p)) {
+        this.pageflip.page = p;
+      }
+    }
+
     const link2D = document.getElementById('engine-link-2d');
     const link3D = document.getElementById('engine-link-3d');
     if (link2D && link3D) {

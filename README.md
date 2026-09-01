@@ -96,7 +96,7 @@ To view and interact with `hic-pageflip`, you need a browser that supports the *
 | `page-width` | `pageWidth` | `number` | `1024` | Width of a single page in CSS pixels. |
 | `page-height` | `pageHeight` | `number` | `768` | Height of a single page in CSS pixels. |
 | `page-background` | `pageBackground` | `string` | `'white'` | Background color/fill applied to each page sheet. |
-| `page` | `currentPage` | `number` | `0` | Current page index (0 = Cover / Spread [0, 1]). |
+| `page` | `page` / `currentPage` | `number` | `0` | Current page index (0 = Cover / Spread [0, 1]). |
 
 ### Methods
 
@@ -107,7 +107,7 @@ const flipbook = document.querySelector('hic-pageflip');
 flipbook.flipForward();
 
 // Navigate backwards by one spread
-flipbackward.flipBackward();
+flipbook.flipBackward();
 
 // Jump to a specific page number
 flipbook.gotoPage(4);

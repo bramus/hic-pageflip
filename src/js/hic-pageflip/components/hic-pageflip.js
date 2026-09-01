@@ -104,9 +104,15 @@ export class HICPageflip extends BaseElement {
     } else if (name === 'page-width' || name === 'page-height' || name === 'page-background') {
       this.applyDimensions();
       if (this.pageflip) this.pageflip.render();
-    } else if (name === 'page' && newValue !== null) {
-      const p = parseInt(newValue, 10);
-      if (!isNaN(p) && this.pageflip) this.pageflip.gotoPage(p);
+    } else if (name === 'page') {
+      if (newValue !== null) {
+        const p = parseInt(newValue, 10);
+        if (!isNaN(p) && this.pageflip) {
+          this.pageflip.gotoPage(p);
+        }
+      } else if (this.pageflip) {
+        this.pageflip.gotoPage(0);
+      }
     }
   }
 
@@ -147,10 +153,17 @@ export class HICPageflip extends BaseElement {
     const mode = this.getAttribute('engine') || this._engineMode || '2d';
     this._engineMode = mode;
 
+    const pageAttr = this.getAttribute('page');
+    const initialPage = pageAttr !== null ? parseInt(pageAttr, 10) : 0;
+
     this.pageflip = new Pageflip(this.canvas, this.slides, {
       engine: mode,
+      page: !isNaN(initialPage) ? initialPage : 0,
       totalPages: this.slides.length || 6,
       onPageChange: (state) => {
+        if (this.getAttribute('page') !== String(state.currentPage)) {
+          this.setAttribute('page', `${state.currentPage}`);
+        }
         this.dispatchEvent(new CustomEvent('pagechange', {
           bubbles: true,
           composed: true,
@@ -235,9 +248,9 @@ export class HICPageflip extends BaseElement {
 
   getState() {
     return this.pageflip ? this.pageflip.getState() : {
-      currentPage: 0,
-      totalPages: this.slides.length,
-      currentSpread: [0, 1]
+      currentPage: this.currentPage,
+      totalPages: this.totalPages,
+      currentSpread: this.currentSpread
     };
   }
 
@@ -258,8 +271,29 @@ export class HICPageflip extends BaseElement {
     this.switchEngine(val);
   }
 
+  get page() {
+    return this.currentPage;
+  }
+
+  set page(val) {
+    this.currentPage = val;
+  }
+
   get currentPage() {
-    return this.pageflip ? this.pageflip.currentPage : 0;
+    if (this.pageflip) {
+      return this.pageflip.currentPage;
+    }
+    const pageAttr = this.getAttribute('page');
+    return pageAttr !== null ? (parseInt(pageAttr, 10) || 0) : 0;
+  }
+
+  set currentPage(val) {
+    const p = parseInt(val, 10);
+    if (isNaN(p)) return;
+    this.setAttribute('page', `${p}`);
+    if (this.pageflip) {
+      this.pageflip.gotoPage(p);
+    }
   }
 
   get totalPages() {
@@ -267,7 +301,12 @@ export class HICPageflip extends BaseElement {
   }
 
   get currentSpread() {
-    return this.pageflip ? this.pageflip.currentSpread : [0, 1];
+    if (this.pageflip) {
+      return this.pageflip.currentSpread;
+    }
+    const cur = this.currentPage;
+    if (cur <= 1) return [0, 1];
+    return [cur, cur + 1];
   }
 
   get pageWidth() {
