@@ -1,150 +1,13 @@
 /**
  * HTML-in-Canvas (HIC) Controller for PageFlip.
- * Uses the Chrome HTML-in-Canvas API (drawElementImage & layoutsubtree).
- * See: https://developer.chrome.com/blog/html-in-canvas-origin-trial
+ * Manages the interactive viewer lifecycle, controls, themes, and engine switching (2D vs 3D).
  */
 
-import { FlipbookRenderer } from './renderer.js';
-import { WebGLFlipbookRenderer } from './renderer3d.js';
+import { HICFlipbookRenderer2D } from './renderer-2d.js';
+import { HICFlipbookRenderer3D } from './renderer-3d.js';
 import { Flipbook } from './flipbook.js';
 
-/**
- * Custom Renderer extending FlipbookRenderer to use ctx.drawElementImage with full-viewport canvas
- */
-class HICFlipbookRenderer extends FlipbookRenderer {
-  constructor(canvas, slides) {
-    super(canvas);
-    this.slides = slides;
-    this.devicePixelRatio = 1;
-    this.updateDimensionsFromAttributes();
-  }
-
-  updateDimensionsFromAttributes() {
-    const pw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset.pageflipWidth, 10) || 1024;
-    const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset.pageflipHeight, 10) || 768;
-    this.setDimensions(pw, ph);
-  }
-
-  resize() {
-    this.updateDimensionsFromAttributes();
-
-    const rect = this.canvas.getBoundingClientRect();
-    this.devicePixelRatio = 1;
-
-    // Use CSS pixel dimensions directly for 1:1 context coordinate mapping
-    this.canvas.width = Math.round(rect.width) || 1024;
-    this.canvas.height = Math.round(rect.height) || 768;
-    this.viewportWidth = this.canvas.width;
-    this.viewportHeight = this.canvas.height;
-    this.offsetX = this.canvas.width / 2;
-    this.offsetY = this.canvas.height / 2;
-
-    const pad = 40;
-    const availW = Math.max(100, this.canvas.width - pad);
-    const availH = Math.max(100, this.canvas.height - pad);
-    const spreadW = this.pw * 2;
-    const spreadH = this.ph;
-
-    this.scale = Math.min(availW / spreadW, availH / spreadH, 1);
-    this.zoom = 1.0;
-    this.panX = 0;
-    this.panY = 0;
-  }
-
-  render(state) {
-    const [leftPage, rightPage] = state.currentSpread;
-    const totalPages = state.totalPages || this.slides.length;
-    const activePages = new Set();
-
-    // Once the pointer goes down (dragging) or during active fold animation, inert ALL pages
-    const isInteracting = state.isDragging || (state.activeFlip && !state.activeFlip.isPeek);
-    if (!isInteracting) {
-      if (leftPage > 0) activePages.add(leftPage);
-      if (rightPage <= totalPages) activePages.add(rightPage);
-    }
-
-    // Dynamically inert all non-active pages
-    this.slides.forEach((s) => {
-      if (s.element) {
-        s.element.inert = !activePages.has(s.pageNum);
-      }
-    });
-
-    super.render(state);
-  }
-
-  requestRender(callback) {
-    if (this.canvas && typeof this.canvas.requestPaint === 'function') {
-      this.canvas.requestPaint();
-    }
-    super.requestRender(callback);
-  }
-
-  drawPage(ctx, pageNum, x, y, w, h) {
-    const slide = this.slides[pageNum - 1];
-    if (!slide || !slide.element) return;
-
-    const el = slide.element;
-    if (typeof ctx.drawElementImage === 'function') {
-      try {
-        ctx.save();
-        ctx.translate(x, y);
-        const transform = ctx.drawElementImage(el, 0, 0);
-        if (transform && el.style) {
-          el.style.transform = transform.toString();
-        }
-        ctx.restore();
-      } catch (err) {
-        // Ignore if paint record not ready
-      }
-    }
-  }
-
-  drawPageBack(ctx, pageNum, x, y, w, h) {
-    const slide = this.slides[pageNum - 1];
-    if (!slide || !slide.element) return;
-
-    const el = slide.element;
-    if (typeof ctx.drawElementImage === 'function') {
-      try {
-        ctx.save();
-        ctx.translate(x + w, y);
-        ctx.scale(-1, 1);
-        const transform = ctx.drawElementImage(el, 0, 0);
-        if (transform && el.style) {
-          el.style.transform = transform.toString();
-        }
-        ctx.restore();
-      } catch (err) {
-        // Ignore
-      }
-    }
-  }
-
-  drawPageFrontReflected(ctx, pageNum, x, y, w, h) {
-    const slide = this.slides[pageNum - 1];
-    if (!slide || !slide.element) return;
-
-    const el = slide.element;
-    if (typeof ctx.drawElementImage === 'function') {
-      try {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.scale(-1, 1);
-        ctx.translate(-w, 0);
-        const transform = ctx.drawElementImage(el, 0, 0);
-        if (transform && el.style) {
-          el.style.transform = transform.toString();
-        }
-        ctx.restore();
-      } catch (err) {
-        // Ignore
-      }
-    }
-  }
-}
-
-class HICApp {
+export class HICApp {
   constructor() {
     this.canvas = document.getElementById('book-canvas');
     this.container = document.getElementById('book-container');
@@ -210,9 +73,9 @@ class HICApp {
     }));
 
     if (engineMode === '3d') {
-      this.renderer = new WebGLFlipbookRenderer(this.canvas, this.slides);
+      this.renderer = new HICFlipbookRenderer3D(this.canvas, this.slides);
     } else {
-      this.renderer = new HICFlipbookRenderer(this.canvas, this.slides);
+      this.renderer = new HICFlipbookRenderer2D(this.canvas, this.slides);
     }
 
     this.applyDimensions();
@@ -293,9 +156,9 @@ class HICApp {
 
     // 4. Initialize chosen renderer
     if (this.engineMode === '3d') {
-      this.renderer = new WebGLFlipbookRenderer(this.canvas, this.slides);
+      this.renderer = new HICFlipbookRenderer3D(this.canvas, this.slides);
     } else {
-      this.renderer = new HICFlipbookRenderer(this.canvas, this.slides);
+      this.renderer = new HICFlipbookRenderer2D(this.canvas, this.slides);
     }
 
     const totalPages = this.slides.length || 6;
@@ -486,7 +349,8 @@ class HICApp {
   }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-  window.hicApp = new HICApp();
-});
-
+if (typeof window !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', () => {
+    window.hicApp = new HICApp();
+  });
+}

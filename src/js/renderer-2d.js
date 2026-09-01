@@ -1,99 +1,73 @@
 /**
- * High-DPI Canvas 2D Flipbook Renderer.
- * Implements precise geometric fold clipping, affine reflection matrices,
- * fold drop shadows, spine shadows, and 100% color-accurate slide rendering.
+ * HTML-in-Canvas 2D Flipbook Renderer (HICFlipbookRenderer2D)
+ * Implements 2D geometric fold clipping, affine reflection matrices,
+ * fold drop shadows, spine shadows, and direct DOM element drawing via ctx.drawElementImage.
  */
 
+import { BaseRenderer } from './renderer-base.js';
 import { calculateFold, clamp } from './math.js';
 
-export class FlipbookRenderer {
-  constructor(canvas) {
-    this.canvas = canvas;
+export class HICFlipbookRenderer2D extends BaseRenderer {
+  constructor(canvas, slides = []) {
+    super(canvas, slides);
     this.ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
-    this.images = new Map(); // pageNum -> HTMLImageElement
-    this.loading = new Set();
-    this.devicePixelRatio = window.devicePixelRatio || 1;
-
-    // Viewport transform
-    this.scale = 1;
-    this.offsetX = 0;
-    this.offsetY = 0;
-    this.zoom = 1;
-    this.panX = 0;
-    this.panY = 0;
-
-    // Book dimensions
-    this.pw = 1024;
-    this.ph = 768;
-    this.bookMode = 'spread';
-
-    // Theme
-    this.theme = 'slate';
-  }
-
-  setDimensions(pw, ph) {
-    this.pw = pw;
-    this.ph = ph;
-  }
-
-  clearCache() {
-    this.images.clear();
-    this.loading.clear();
-  }
-
-  preloadImage(pageNum, url) {
-    if (this.images.has(pageNum) || this.loading.has(pageNum)) return;
-    this.loading.add(pageNum);
-
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = url;
-    img.onload = () => {
-      this.images.set(pageNum, img);
-      this.loading.delete(pageNum);
-      this.requestRender();
-    };
-    img.onerror = () => {
-      this.loading.delete(pageNum);
-    };
+    this.devicePixelRatio = 1;
+    this.resize();
   }
 
   resize() {
-    const rect = this.canvas.parentElement.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    this.devicePixelRatio = dpr;
+    const rect = this.canvas.getBoundingClientRect();
+    this.devicePixelRatio = 1;
 
-    this.canvas.width = Math.round(rect.width * dpr);
-    this.canvas.height = Math.round(rect.height * dpr);
-    this.canvas.style.width = `${rect.width}px`;
-    this.canvas.style.height = `${rect.height}px`;
+    // Use CSS pixel dimensions directly for 1:1 context coordinate mapping
+    this.canvas.width = Math.round(rect.width) || this.pw;
+    this.canvas.height = Math.round(rect.height) || this.ph;
+    this.viewportWidth = this.canvas.width;
+    this.viewportHeight = this.canvas.height;
+    this.offsetX = this.canvas.width / 2;
+    this.offsetY = this.canvas.height / 2;
 
-    // Compute fit scale
-    const availW = rect.width * 0.92;
-    const availH = rect.height * 0.88;
-    const totalBookW = this.pw * 2;
-    const totalBookH = this.ph;
+    const pad = 40;
+    const availW = Math.max(100, this.canvas.width - pad);
+    const availH = Math.max(100, this.canvas.height - pad);
+    const spreadW = this.pw * 2;
+    const spreadH = this.ph;
 
-    const scaleX = availW / totalBookW;
-    const scaleY = availH / totalBookH;
-    this.scale = Math.min(scaleX, scaleY, 1.25);
-
-    this.offsetX = rect.width / 2;
-    this.offsetY = rect.height / 2;
+    this.scale = Math.min(availW / spreadW, availH / spreadH, 1);
+    this.zoom = 1.0;
+    this.panX = 0;
+    this.panY = 0;
   }
 
   requestRender(callback) {
-    if (this._rafId) return;
-    this._rafId = requestAnimationFrame(() => {
-      this._rafId = null;
-      if (callback) callback();
-    });
+    if (this.canvas && typeof this.canvas.requestPaint === 'function') {
+      this.canvas.requestPaint();
+    }
+    super.requestRender(callback);
   }
 
   /**
    * Main render loop
    */
   render(state) {
+    const [leftPage, rightPage] = state.currentSpread;
+    const totalPages = state.totalPages || this.slides.length;
+    const activePages = new Set();
+
+    // Once the pointer goes down (dragging) or during active fold animation, inert ALL pages
+    const isInteracting = state.isDragging || (state.activeFlip && !state.activeFlip.isPeek);
+    if (!isInteracting) {
+      if (leftPage > 0) activePages.add(leftPage);
+      if (rightPage <= totalPages) activePages.add(rightPage);
+    }
+
+    // Dynamically inert all non-active pages
+    this.slides.forEach((s) => {
+      if (s.element) {
+        s.element.inert = !activePages.has(s.pageNum);
+      }
+    });
+
     const ctx = this.ctx;
     const dpr = this.devicePixelRatio;
     const width = this.canvas.width / dpr;
@@ -118,7 +92,6 @@ export class FlipbookRenderer {
 
   /**
    * Ambient shadow of the physical book resting on the desk surface.
-   * On the cover (left = 0), the book body only exists on the right side [0, pw].
    */
   renderBookShadow(ctx, state) {
     const pw = this.pw;
@@ -131,11 +104,9 @@ export class FlipbookRenderer {
 
     if (flip) {
       if (flip.dir < 0 && leftPageNum - 2 <= 0) {
-        // Turning page 2 back to reveal empty desk on left
         leftX = 0;
       }
       if (flip.dir > 0 && rightPageNum + 2 > state.totalPages) {
-        // Turning last right page to reveal empty desk on right
         rightX = 0;
       }
     }
@@ -251,7 +222,7 @@ export class FlipbookRenderer {
       ctx.rect(0, -ph / 2, pw, ph);
       ctx.clip();
 
-      // Draw Page N+1 with 100% color fidelity on top of everything
+      // Draw Page N+1 on top
       this.drawPageBack(ctx, backPageNum, 0, -ph / 2, pw, ph);
       ctx.restore();
 
@@ -326,7 +297,7 @@ export class FlipbookRenderer {
       ctx.rect(-pw, -ph / 2, pw, ph);
       ctx.clip();
 
-      // Draw Page N-1 with 100% color fidelity on top of everything
+      // Draw Page N-1
       this.drawPageFrontReflected(ctx, frontPageNum, -pw, -ph / 2, pw, ph);
       ctx.restore();
     }
@@ -334,9 +305,6 @@ export class FlipbookRenderer {
 
   /**
    * Clips to one half of the plane divided by the fold crease line.
-   * @param {CanvasRenderingContext2D} ctx
-   * @param {object} fold
-   * @param {boolean} onDragSide - true for dragged corner/spine side (P), false for peeled corner side (S)
    */
   clipHalfPlane(ctx, fold, onDragSide) {
     const L = Math.max(this.pw, this.ph) * 6;
@@ -368,7 +336,7 @@ export class FlipbookRenderer {
     ctx.clip();
 
     ctx.beginPath();
-    this.clipHalfPlane(ctx, fold, false); // revealed area is on the S-side
+    this.clipHalfPlane(ctx, fold, false);
     ctx.clip();
 
     const shadowWidth = clamp(fold.len * 0.16, 12, 45);
@@ -388,34 +356,49 @@ export class FlipbookRenderer {
   }
 
   /**
-   * Draws a flat page image with 1:1 pixel color accuracy.
+   * Draws a flat DOM slide using ctx.drawElementImage.
    */
   drawPage(ctx, pageNum, x, y, w, h) {
-    const img = this.images.get(pageNum);
+    const slide = this.slides[pageNum - 1];
+    if (!slide || !slide.element) return;
 
-    if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, x, y, w, h);
-    } else {
-      this.drawLoadingPage(ctx, pageNum, x, y, w, h);
+    const el = slide.element;
+    if (typeof ctx.drawElementImage === 'function') {
+      try {
+        ctx.save();
+        ctx.translate(x, y);
+        const transform = ctx.drawElementImage(el, 0, 0);
+        if (transform && el.style) {
+          el.style.transform = transform.toString();
+        }
+        ctx.restore();
+      } catch (err) {
+        // Ignore if paint record not ready
+      }
     }
   }
 
   /**
    * Draws the backside of the turning page (Page N+1) onto the sheet [0, -ph/2, pw, ph].
-   * The back of the page is horizontally flipped so that after the fold reflection,
-   * it appears correctly oriented and right-reading.
    */
   drawPageBack(ctx, pageNum, x, y, w, h) {
-    const img = this.images.get(pageNum);
+    const slide = this.slides[pageNum - 1];
+    if (!slide || !slide.element) return;
 
-    if (img && img.complete && img.naturalWidth > 0) {
-      ctx.save();
-      ctx.translate(x + w, y);
-      ctx.scale(-1, 1);
-      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, w, h);
-      ctx.restore();
-    } else {
-      this.drawLoadingPage(ctx, pageNum, x, y, w, h);
+    const el = slide.element;
+    if (typeof ctx.drawElementImage === 'function') {
+      try {
+        ctx.save();
+        ctx.translate(x + w, y);
+        ctx.scale(-1, 1);
+        const transform = ctx.drawElementImage(el, 0, 0);
+        if (transform && el.style) {
+          el.style.transform = transform.toString();
+        }
+        ctx.restore();
+      } catch (err) {
+        // Ignore
+      }
     }
   }
 
@@ -423,42 +406,25 @@ export class FlipbookRenderer {
    * Draws the front of the turning left page reflected onto the right side.
    */
   drawPageFrontReflected(ctx, pageNum, x, y, w, h) {
-    const img = this.images.get(pageNum);
+    const slide = this.slides[pageNum - 1];
+    if (!slide || !slide.element) return;
 
-    if (img && img.complete && img.naturalWidth > 0) {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.scale(-1, 1);
-      ctx.translate(-w, 0);
-      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, w, h);
-      ctx.restore();
-    } else {
-      this.drawLoadingPage(ctx, pageNum, x, y, w, h);
+    const el = slide.element;
+    if (typeof ctx.drawElementImage === 'function') {
+      try {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(-1, 1);
+        ctx.translate(-w, 0);
+        const transform = ctx.drawElementImage(el, 0, 0);
+        if (transform && el.style) {
+          el.style.transform = transform.toString();
+        }
+        ctx.restore();
+      } catch (err) {
+        // Ignore
+      }
     }
-  }
-
-  drawBlankPage(ctx, x, y, w, h) {
-    ctx.save();
-    ctx.fillStyle = '#171920';
-    ctx.fillRect(x, y, w, h);
-    ctx.restore();
-  }
-
-  drawLoadingPage(ctx, pageNum, x, y, w, h) {
-    ctx.save();
-    ctx.fillStyle = '#1c1f26';
-    ctx.fillRect(x, y, w, h);
-
-    ctx.fillStyle = '#5a6275';
-    ctx.font = `600 ${Math.round(22 * this.scale)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`Page ${pageNum}`, x + w / 2, y + h / 2 - 12);
-
-    ctx.font = `400 ${Math.round(13 * this.scale)}px sans-serif`;
-    ctx.fillStyle = '#7a859c';
-    ctx.fillText('Loading slide...', x + w / 2, y + h / 2 + 16);
-    ctx.restore();
   }
 
   /**
@@ -470,7 +436,7 @@ export class FlipbookRenderer {
     const [leftPageNum, rightPageNum] = state.currentSpread;
 
     ctx.save();
-    // Left side of spine (only if left page exists on the desk)
+    // Left side of spine
     if (leftPageNum > 0) {
       const leftGrad = ctx.createLinearGradient(-spineWidth, 0, 0, 0);
       leftGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
@@ -480,7 +446,7 @@ export class FlipbookRenderer {
       ctx.fillRect(-spineWidth, -ph / 2, spineWidth, ph);
     }
 
-    // Right side of spine (only if right page exists on the desk)
+    // Right side of spine
     if (rightPageNum <= state.totalPages) {
       const rightGrad = ctx.createLinearGradient(0, 0, spineWidth, 0);
       rightGrad.addColorStop(0, 'rgba(0, 0, 0, 0.38)');
@@ -490,7 +456,7 @@ export class FlipbookRenderer {
       ctx.fillRect(0, -ph / 2, spineWidth, ph);
     }
 
-    // Fine center line (only if both pages exist on desk)
+    // Fine center line
     if (leftPageNum > 0 && rightPageNum <= state.totalPages) {
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
       ctx.lineWidth = 1;
@@ -500,23 +466,5 @@ export class FlipbookRenderer {
       ctx.stroke();
     }
     ctx.restore();
-  }
-
-  screenToBook(screenX, screenY) {
-    const relX = screenX - (this.offsetX + this.panX);
-    const relY = screenY - (this.offsetY + this.panY);
-    const scale = this.scale * this.zoom;
-    return {
-      x: relX / scale,
-      y: relY / scale
-    };
-  }
-
-  bookToScreen(bookX, bookY) {
-    const scale = this.scale * this.zoom;
-    return {
-      x: (bookX * scale) + this.offsetX + this.panX,
-      y: (bookY * scale) + this.offsetY + this.panY
-    };
   }
 }

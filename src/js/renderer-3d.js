@@ -1,32 +1,17 @@
 /**
- * 3D WebGL Flipbook Renderer
+ * HTML-in-Canvas 3D WebGL Flipbook Renderer (HICFlipbookRenderer3D)
  * Complete implementation based on Chris Luke's "The Anatomy of a Page Curl":
  * https://blog.flirble.org/2010/10/08/the-anatomy-of-a-page-curl/
+ * Captures live DOM elements using gl.texElementImage2D and maps geometry via canvas.updateElementGeometry.
  */
 
-export class WebGLFlipbookRenderer {
-  constructor(canvas, slidesOrBook = []) {
-    this.canvas = canvas;
-    this.slides = slidesOrBook;
+import { BaseRenderer } from './renderer-base.js';
+
+export class HICFlipbookRenderer3D extends BaseRenderer {
+  constructor(canvas, slides = []) {
+    super(canvas, slides);
     this.gl = null;
     this.program = null;
-
-    // Page dimensions (initialized from canvas attributes if present, updated dynamically via setDimensions)
-    const attrPw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset?.pageflipWidth, 10);
-    const attrPh = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset?.pageflipHeight, 10);
-    this.pw = attrPw || 1024;
-    this.ph = attrPh || 768;
-    this.devicePixelRatio = window.devicePixelRatio || 1;
-
-    // Viewport transformations (updated dynamically on resize)
-    this.viewportWidth = this.pw;
-    this.viewportHeight = this.ph;
-    this.scale = 1;
-    this.zoom = 1;
-    this.panX = 0;
-    this.panY = 0;
-    this.offsetX = this.pw / 2;
-    this.offsetY = this.ph / 2;
 
     // Mesh resolution (Chris Luke cylinder grid)
     this.gridX = 80;
@@ -34,6 +19,7 @@ export class WebGLFlipbookRenderer {
 
     this.meshBuffers = null;
     this.textures = new Map();
+    this.isReloadingTextures = false;
 
     this.initGL();
     this.resize();
@@ -121,7 +107,7 @@ export class WebGLFlipbookRenderer {
         if (uIsActive > 0.5) {
           float A = uCylBase.y;
           float B = uCylBase.x;
-          float C = uC;
+          float C = max(0.1, uC);
           float theta = uTheta;
 
           float tanTheta = tan(theta);
@@ -218,69 +204,71 @@ export class WebGLFlipbookRenderer {
 
       void main() {
         vec4 texColor;
-        vec3 N;
+        vec3 norm = normalize(vNormal);
 
+        // Hardware two-sided shading
         if (gl_FrontFacing) {
-          // Front of sheet
           texColor = texture2D(uSamplerFront, vUv);
-          N = normalize(vNormal);
         } else {
-          // Underside of turned flap
           texColor = texture2D(uSamplerBack, vBackUv);
-          N = normalize(-vNormal);
+          norm = -norm;
         }
 
-        // Diffuse paper lighting
-        vec3 L = normalize(uLightDir);
-        float diff = clamp(dot(N, L), 0.0, 1.0) * 0.3 + 0.7;
+        // Lighting model (directional light + soft ambient + specular highlight)
+        vec3 light = normalize(uLightDir);
+        float diff = max(dot(norm, light), 0.0);
 
-        // Subtle specular paper sheen
-        vec3 V = vec3(0.0, 0.0, 1.0);
-        vec3 H = normalize(L + V);
-        float spec = pow(max(dot(N, H), 0.0), 32.0) * 0.05;
+        vec3 viewDir = vec3(0.0, 0.0, 1.0);
+        vec3 halfDir = normalize(light + viewDir);
+        float spec = pow(max(dot(norm, halfDir), 0.0), 32.0);
 
-        gl_FragColor = vec4(texColor.rgb * diff + vec3(spec), texColor.a);
+        // Subtle fold curvature shading
+        float depthShadow = clamp(1.0 - (vWorldPos.z / 600.0), 0.75, 1.0);
+
+        vec3 ambient = vec3(0.92);
+        vec3 diffuseColor = vec3(0.18) * diff;
+        vec3 specularColor = vec3(0.08) * spec;
+
+        vec3 finalRgb = texColor.rgb * (ambient * depthShadow + diffuseColor) + specularColor;
+        gl_FragColor = vec4(finalRgb, texColor.a);
       }
     `;
 
-    this.program = this.createProgram(vsSource, fsSource);
+    const vs = this.compileShader(gl.VERTEX_SHADER, vsSource);
+    const fs = this.compileShader(gl.FRAGMENT_SHADER, fsSource);
+
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error('Failed to link WebGL Program:', gl.getProgramInfoLog(program));
+      return;
+    }
+    this.program = program;
   }
 
-  createShader(type, source) {
+  compileShader(type, source) {
     const gl = this.gl;
     const shader = gl.createShader(type);
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+      console.error('WebGL Shader Compilation Error:', gl.getShaderInfoLog(shader));
       gl.deleteShader(shader);
       return null;
     }
     return shader;
   }
 
-  createProgram(vsSource, fsSource) {
-    const gl = this.gl;
-    const vs = this.createShader(gl.VERTEX_SHADER, vsSource);
-    const fs = this.createShader(gl.FRAGMENT_SHADER, fsSource);
-    const prog = gl.createProgram();
-    gl.attachShader(prog, vs);
-    gl.attachShader(prog, fs);
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-      console.error('Program link error:', gl.getProgramInfoLog(prog));
-      return null;
-    }
-    return prog;
-  }
-
   initBuffers() {
     const gl = this.gl;
+    const gx = this.gridX;
+    const gy = this.gridY;
 
     const positions = [];
     const indices = [];
-    const gx = this.gridX;
-    const gy = this.gridY;
 
     for (let j = 0; j <= gy; j++) {
       const v = j / gy;
@@ -292,10 +280,12 @@ export class WebGLFlipbookRenderer {
 
     for (let j = 0; j < gy; j++) {
       for (let i = 0; i < gx; i++) {
-        const row1 = j * (gx + 1) + i;
-        const row2 = (j + 1) * (gx + 1) + i;
-        indices.push(row1, row2, row1 + 1);
-        indices.push(row1 + 1, row2, row2 + 1);
+        const row1 = j * (gx + 1);
+        const row2 = (j + 1) * (gx + 1);
+
+        // Quad triangles
+        indices.push(row1 + i, row2 + i, row1 + i + 1);
+        indices.push(row1 + i + 1, row2 + i, row2 + i + 1);
       }
     }
 
@@ -385,8 +375,8 @@ export class WebGLFlipbookRenderer {
     const rect = this.canvas.getBoundingClientRect();
     this.devicePixelRatio = window.devicePixelRatio || 1;
 
-    const w = rect.width > 0 ? rect.width : (this.canvas.clientWidth || 1024);
-    const h = rect.height > 0 ? rect.height : (this.canvas.clientHeight || 768);
+    const w = rect.width > 0 ? rect.width : (this.canvas.clientWidth || this.pw);
+    const h = rect.height > 0 ? rect.height : (this.canvas.clientHeight || this.ph);
 
     this.viewportWidth = w;
     this.viewportHeight = h;
@@ -669,32 +659,6 @@ export class WebGLFlipbookRenderer {
     mat[10] *= sz;
   }
 
-  screenToBook(screenX, screenY) {
-    const relX = screenX - (this.offsetX + this.panX);
-    const relY = screenY - (this.offsetY + this.panY);
-    const scale = this.scale * this.zoom;
-    return {
-      x: relX / scale,
-      y: relY / scale
-    };
-  }
-
-  bookToScreen(bookX, bookY) {
-    const scale = this.scale * this.zoom;
-    return {
-      x: (bookX * scale) + this.offsetX + this.panX,
-      y: (bookY * scale) + this.offsetY + this.panY
-    };
-  }
-
-  requestRender(callback) {
-    if (this._rafId) return;
-    this._rafId = requestAnimationFrame(() => {
-      this._rafId = null;
-      if (callback) callback();
-    });
-  }
-
   clearCache() {
     if (this.gl) {
       for (const tex of this.textures.values()) {
@@ -702,24 +666,5 @@ export class WebGLFlipbookRenderer {
       }
     }
     this.textures.clear();
-  }
-
-  preloadImage(pageNum, url) {
-    const img = new Image();
-    img.src = url;
-    img.onload = () => {
-      if (!this.gl) return;
-      let tex = this.textures.get(pageNum);
-      if (!tex) {
-        tex = this.gl.createTexture();
-        this.textures.set(pageNum, tex);
-      }
-      this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
-      this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img);
-      this.gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      this.gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      this.gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      this.gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    };
   }
 }

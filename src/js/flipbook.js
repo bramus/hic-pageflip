@@ -11,8 +11,7 @@ export class Flipbook {
     this.renderer = renderer;
     this.canvas = renderer.canvas;
 
-    this.totalPages = options.totalPages || 25;
-    this.bookId = options.bookId || '';
+    this.totalPages = options.totalPages || 6;
 
     // Current page: 0 = closed (cover on right), 2 = pages 2 & 3, etc.
     this.currentPage = 0;
@@ -60,45 +59,6 @@ export class Flipbook {
     this.bindEvents();
   }
 
-  setBook(bookMeta) {
-    this.bookId = bookMeta.id;
-    this.totalPages = bookMeta.pageCount;
-    this.currentPage = 0;
-    this.activeFlip = null;
-    this.animation = null;
-
-    // Reset image cache for the new book so old book images are cleared
-    this.renderer.clearCache();
-    this.renderer.setDimensions(bookMeta.width, bookMeta.height);
-    this.renderer.resize();
-
-    // Preload pages for the new book
-    this.preloadSurroundingPages();
-    this.notifyPageChange();
-  }
-
-  preloadSurroundingPages() {
-    if (!this.bookId) return;
-    const spread = this.currentSpread;
-    const toPreload = [
-      1, 2, 3, 4, 5, 6,
-      spread[0] - 2,
-      spread[0] - 1,
-      spread[0],
-      spread[1],
-      spread[1] + 1,
-      spread[1] + 2,
-      spread[1] + 3
-    ].filter((p) => p >= 1 && p <= this.totalPages);
-
-    const uniquePages = Array.from(new Set(toPreload));
-    for (const p of uniquePages) {
-      const pageStr = String(p).padStart(2, '0');
-      const url = `books/${this.bookId}/${pageStr}.png`;
-      this.renderer.preloadImage(p, url);
-    }
-  }
-
   bindEvents() {
     const el = this.canvas;
 
@@ -118,43 +78,25 @@ export class Flipbook {
   /**
    * Detects if pointer is near interactive flip areas / corners
    */
-  detectCorner(bookPt) {
+  detectCorner(bookX, bookY) {
     const pw = this.renderer.pw;
     const ph = this.renderer.ph;
-    const cornerSize = Math.min(pw, ph) * 0.35;
+    const cornerSize = Math.min(pw * 0.35, 180);
     const [leftPage, rightPage] = this.currentSpread;
 
-    // Right side corners (Forward flip available if right page exists)
-    if (rightPage <= this.totalPages && bookPt.x > 0 && bookPt.x <= pw) {
-      // Top Right
-      if (bookPt.x > pw - cornerSize && bookPt.y < -ph / 2 + cornerSize) {
-        return { corner: 'tr', sx: pw, sy: -ph / 2, dir: 1 };
-      }
-      // Bottom Right
-      if (bookPt.x > pw - cornerSize && bookPt.y > ph / 2 - cornerSize) {
-        return { corner: 'br', sx: pw, sy: ph / 2, dir: 1 };
-      }
-      // Right edge
-      if (bookPt.x > pw - cornerSize * 0.45 && Math.abs(bookPt.y) <= ph / 2) {
-        const sy = bookPt.y < 0 ? -ph / 2 : ph / 2;
-        return { corner: 're', sx: pw, sy: sy, dir: 1 };
+    // Right page active corners (can flip forward if right page exists)
+    if (rightPage <= this.totalPages) {
+      if (bookX > pw - cornerSize && bookX <= pw) {
+        if (bookY > ph / 2 - cornerSize) return 'br';
+        if (bookY < -ph / 2 + cornerSize) return 'tr';
       }
     }
 
-    // Left side corners (Backward flip available if left page exists)
-    if (leftPage > 0 && bookPt.x < 0 && bookPt.x >= -pw) {
-      // Top Left
-      if (bookPt.x < -pw + cornerSize && bookPt.y < -ph / 2 + cornerSize) {
-        return { corner: 'tl', sx: -pw, sy: -ph / 2, dir: -1 };
-      }
-      // Bottom Left
-      if (bookPt.x < -pw + cornerSize && bookPt.y > ph / 2 - cornerSize) {
-        return { corner: 'bl', sx: -pw, sy: ph / 2, dir: -1 };
-      }
-      // Left edge
-      if (bookPt.x < -pw + cornerSize * 0.45 && Math.abs(bookPt.y) <= ph / 2) {
-        const sy = bookPt.y < 0 ? -ph / 2 : ph / 2;
-        return { corner: 'le', sx: -pw, sy: sy, dir: -1 };
+    // Left page active corners (can flip backward if left page exists)
+    if (leftPage > 0) {
+      if (bookX < -pw + cornerSize && bookX >= -pw) {
+        if (bookY > ph / 2 - cornerSize) return 'bl';
+        if (bookY < -ph / 2 + cornerSize) return 'tl';
       }
     }
 
@@ -167,163 +109,227 @@ export class Flipbook {
     const rect = this.canvas.getBoundingClientRect();
     const screenX = e.clientX - rect.left;
     const screenY = e.clientY - rect.top;
-    const bookPt = this.renderer.screenToBook(screenX, screenY);
 
     const now = performance.now();
-    const dt = Math.max(1, now - this.lastPointer.time);
+    const dt = Math.max(1, now - (this.lastPointer.time || now));
     this.velocity = {
       x: (screenX - this.lastPointer.x) / dt,
       y: (screenY - this.lastPointer.y) / dt
     };
     this.lastPointer = { x: screenX, y: screenY, time: now };
 
-    if (this.isDragging && this.activeFlip) {
-      const pw = this.renderer.pw;
-      const ph = this.renderer.ph;
-      const constrained = constrainPaper(
-        bookPt.x,
-        bookPt.y,
-        this.activeFlip.sx,
-        this.activeFlip.sy,
-        pw,
-        ph
-      );
+    const bookPt = this.renderer.screenToBook(screenX, screenY);
 
-      this.activeFlip.px = constrained.x;
-      this.activeFlip.py = constrained.y;
-      this.activeFlip.isPeek = false;
-      this.canvas.style.cursor = 'grabbing';
-      this.notifyFlipProgress();
+    if (this.isDragging && this.activeFlip) {
+      this.updateDrag(bookPt.x, bookPt.y);
       return;
     }
 
-    // Dynamic hover tracking: Corner curl follows the mouse position in real-time
-    const hit = this.detectCorner(bookPt);
-    if (hit) {
-      this.hoverCorner = hit.corner;
-      this.canvas.style.cursor = 'pointer';
+    // Hover Corner Peek
+    const corner = this.detectCorner(bookPt.x, bookPt.y);
+    if (corner !== this.hoverCorner) {
+      this.hoverCorner = corner;
+      this.canvas.style.cursor = corner ? 'pointer' : 'default';
 
-      const pw = this.renderer.pw;
-      const ph = this.renderer.ph;
-
-      // Constrain mouse position to valid paper curl physics
-      const constrained = constrainPaper(
-        bookPt.x,
-        bookPt.y,
-        hit.sx,
-        hit.sy,
-        pw,
-        ph
-      );
-
-      this.activeFlip = {
-        sx: hit.sx,
-        sy: hit.sy,
-        px: constrained.x,
-        py: constrained.y,
-        dir: hit.dir,
-        isPeek: true
-      };
-      this.notifyFlipProgress();
-    } else {
-      this.hoverCorner = null;
-      this.canvas.style.cursor = 'default';
-      if (this.activeFlip && this.activeFlip.isPeek) {
-        this.activeFlip = null;
-        this.notifyFlipProgress();
+      if (corner && !this.activeFlip) {
+        this.startCornerPeek(corner);
+      } else if (!corner && this.activeFlip && this.activeFlip.isPeek) {
+        this.endCornerPeek();
       }
     }
   }
 
   handlePointerDown(e) {
-    if (this.animation) return;
+    if (e.button !== 0 || this.animation) return;
 
     const rect = this.canvas.getBoundingClientRect();
     const screenX = e.clientX - rect.left;
     const screenY = e.clientY - rect.top;
     const bookPt = this.renderer.screenToBook(screenX, screenY);
 
-    const hit = this.detectCorner(bookPt);
-    if (hit) {
-      this.isDragging = true;
-      this.dragStartScreen = { x: screenX, y: screenY };
-
-      const pw = this.renderer.pw;
-      const ph = this.renderer.ph;
-      const constrained = constrainPaper(bookPt.x, bookPt.y, hit.sx, hit.sy, pw, ph);
-
-      this.activeFlip = {
-        sx: hit.sx,
-        sy: hit.sy,
-        px: constrained.x,
-        py: constrained.y,
-        dir: hit.dir,
-        isPeek: false
-      };
-      this.canvas.style.cursor = 'grabbing';
-      this.notifyFlipProgress();
+    const corner = this.detectCorner(bookPt.x, bookPt.y);
+    if (corner) {
+      this.startDrag(corner, bookPt.x, bookPt.y, screenX, screenY);
     }
   }
 
   handlePointerUp(e) {
-    if (!this.isDragging || !this.activeFlip || this.activeFlip.isPeek) {
-      this.isDragging = false;
-      return;
-    }
-
-    this.isDragging = false;
-    this.canvas.style.cursor = 'default';
-
-    const flip = this.activeFlip;
-    const pw = this.renderer.pw;
-
-    let shouldComplete = false;
-
-    if (flip.dir > 0) {
-      const progress = (pw - flip.px) / (pw * 2);
-      if (progress > 0.22 || this.velocity.x < -0.35) {
-        shouldComplete = true;
-      }
-    } else {
-      const progress = (flip.px - (-pw)) / (pw * 2);
-      if (progress > 0.22 || this.velocity.x > 0.35) {
-        shouldComplete = true;
-      }
-    }
-
-    this.animateFlipCompletion(flip, shouldComplete);
+    if (!this.isDragging) return;
+    this.endDrag();
   }
 
   handlePointerLeave() {
     if (!this.isDragging && this.activeFlip && this.activeFlip.isPeek) {
-      this.activeFlip = null;
-      this.hoverCorner = null;
-      this.notifyFlipProgress();
+      this.endCornerPeek();
     }
+    this.hoverCorner = null;
+    this.canvas.style.cursor = 'default';
   }
 
   handleTouchStart(e) {
-    if (e.touches.length === 1) {
-      const touch = e.touches[0];
-      this.handlePointerDown({ clientX: touch.clientX, clientY: touch.clientY });
+    if (e.touches.length !== 1 || this.animation) return;
+    const touch = e.touches[0];
+    const rect = this.canvas.getBoundingClientRect();
+    const screenX = touch.clientX - rect.left;
+    const screenY = touch.clientY - rect.top;
+    const bookPt = this.renderer.screenToBook(screenX, screenY);
+
+    const corner = this.detectCorner(bookPt.x, bookPt.y);
+    if (corner) {
+      e.preventDefault();
+      this.startDrag(corner, bookPt.x, bookPt.y, screenX, screenY);
     }
   }
 
   handleTouchMove(e) {
-    if (e.touches.length === 1) {
-      const touch = e.touches[0];
-      this.handlePointerMove({ clientX: touch.clientX, clientY: touch.clientY });
-      if (this.isDragging) {
-        e.preventDefault();
-      }
-    }
+    if (!this.isDragging || e.touches.length !== 1) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = this.canvas.getBoundingClientRect();
+    const screenX = touch.clientX - rect.left;
+    const screenY = touch.clientY - rect.top;
+
+    const now = performance.now();
+    const dt = Math.max(1, now - (this.lastPointer.time || now));
+    this.velocity = {
+      x: (screenX - this.lastPointer.x) / dt,
+      y: (screenY - this.lastPointer.y) / dt
+    };
+    this.lastPointer = { x: screenX, y: screenY, time: now };
+
+    const bookPt = this.renderer.screenToBook(screenX, screenY);
+    this.updateDrag(bookPt.x, bookPt.y);
   }
 
   handleTouchEnd(e) {
-    this.handlePointerUp(e);
+    if (this.isDragging) {
+      this.endDrag();
+    }
   }
 
-  animateFlipCompletion(flip, complete) {
+  getCornerCoords(corner) {
+    const pw = this.renderer.pw;
+    const ph = this.renderer.ph;
+    switch (corner) {
+      case 'br': return { x: pw, y: ph / 2, dir: 1 };
+      case 'tr': return { x: pw, y: -ph / 2, dir: 1 };
+      case 'bl': return { x: -pw, y: ph / 2, dir: -1 };
+      case 'tl': return { x: -pw, y: -ph / 2, dir: -1 };
+      default: return null;
+    }
+  }
+
+  startCornerPeek(corner) {
+    const origin = this.getCornerCoords(corner);
+    if (!origin) return;
+
+    const peekDistance = 35;
+    const targetPx = origin.dir > 0 ? origin.x - peekDistance : origin.x + peekDistance;
+    const targetPy = origin.y > 0 ? origin.y - peekDistance : origin.y + peekDistance;
+
+    this.activeFlip = {
+      corner,
+      sx: origin.x,
+      sy: origin.y,
+      px: targetPx,
+      py: targetPy,
+      dir: origin.dir,
+      isPeek: true
+    };
+  }
+
+  endCornerPeek() {
+    if (!this.activeFlip || !this.activeFlip.isPeek) return;
+    const flip = this.activeFlip;
+    const startPx = flip.px;
+    const startPy = flip.py;
+    const targetPx = flip.sx;
+    const targetPy = flip.sy;
+
+    const startTime = performance.now();
+    const duration = 200;
+
+    this.animation = {
+      startTime,
+      duration,
+      tick: (now) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / duration);
+        const t = Easing.easeOutQuad(progress);
+
+        flip.px = startPx + (targetPx - startPx) * t;
+        flip.py = startPy + (targetPy - startPy) * t;
+
+        if (progress >= 1) {
+          this.animation = null;
+          this.activeFlip = null;
+        }
+      }
+    };
+  }
+
+  startDrag(corner, bookX, bookY, screenX, screenY) {
+    const origin = this.getCornerCoords(corner);
+    if (!origin) return;
+
+    this.isDragging = true;
+    this.hoverCorner = null;
+    this.animation = null;
+    this.dragStartScreen = { x: screenX, y: screenY };
+
+    this.activeFlip = {
+      corner,
+      sx: origin.x,
+      sy: origin.y,
+      px: bookX,
+      py: bookY,
+      dir: origin.dir,
+      isPeek: false
+    };
+
+    this.canvas.style.cursor = 'grabbing';
+  }
+
+  updateDrag(bookX, bookY) {
+    if (!this.activeFlip) return;
+    const pw = this.renderer.pw;
+    const ph = this.renderer.ph;
+    const flip = this.activeFlip;
+
+    const constrained = constrainPaper(bookX, bookY, flip.sx, flip.sy, pw, ph);
+    flip.px = constrained.x;
+    flip.py = constrained.y;
+
+    this.notifyFlipProgress();
+  }
+
+  endDrag() {
+    this.isDragging = false;
+    this.canvas.style.cursor = 'default';
+    if (!this.activeFlip) return;
+
+    const pw = this.renderer.pw;
+    const flip = this.activeFlip;
+    const dragX = flip.px;
+    const vx = this.velocity.x;
+
+    // Decision to complete flip or cancel back
+    let complete = false;
+    if (flip.dir > 0) {
+      // Forward flip: pulled past center line or fast leftward flick
+      complete = dragX < 0 || vx < -0.4;
+    } else {
+      // Backward flip: pulled past center line or fast rightward flick
+      complete = dragX > 0 || vx > 0.4;
+    }
+
+    this.animateFlipCompletion(complete);
+  }
+
+  animateFlipCompletion(complete) {
+    const flip = this.activeFlip;
+    if (!flip) return;
+
     const pw = this.renderer.pw;
     const startPx = flip.px;
     const startPy = flip.py;
@@ -337,8 +343,9 @@ export class Flipbook {
       targetPy = flip.sy;
     }
 
+    const dist = Math.hypot(targetPx - startPx, targetPy - startPy);
+    const duration = clamp(dist * 0.75, 200, 480);
     const startTime = performance.now();
-    const duration = complete ? 340 : 240;
 
     this.animation = {
       startTime,
@@ -363,7 +370,6 @@ export class Flipbook {
             } else {
               this.currentPage = Math.max(0, this.currentPage - 2);
             }
-            this.preloadSurroundingPages();
             this.notifyPageChange();
           }
         }
@@ -415,7 +421,6 @@ export class Flipbook {
           this.animation = null;
           this.activeFlip = null;
           this.currentPage = Math.min(this.totalPages, this.currentPage + 2);
-          this.preloadSurroundingPages();
           this.notifyPageChange();
         }
       }
@@ -466,7 +471,6 @@ export class Flipbook {
           this.animation = null;
           this.activeFlip = null;
           this.currentPage = Math.max(0, this.currentPage - 2);
-          this.preloadSurroundingPages();
           this.notifyPageChange();
         }
       }
@@ -489,7 +493,6 @@ export class Flipbook {
       this.currentPage = targetSpread;
       this.activeFlip = null;
       this.animation = null;
-      this.preloadSurroundingPages();
       this.notifyPageChange();
     }
   }
