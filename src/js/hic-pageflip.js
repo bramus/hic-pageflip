@@ -179,10 +179,29 @@ export class HICPageflip extends BaseElement {
     }
 
     if (this.pageflip) {
-      this.pageflip.switchEngine(engineMode);
-      this.canvas = this.pageflip.canvas;
-      this.applyDimensions();
+      this.pageflip.destroy();
+      this.pageflip = null;
     }
+
+    // Recreate fresh canvas inside Shadow Root to allow switching between 2D and WebGL contexts
+    if (this.shadowRoot) {
+      const oldCanvas = this.canvas;
+      const newCanvas = document.createElement('canvas');
+      newCanvas.setAttribute('layoutsubtree', '');
+      const slot = document.createElement('slot');
+      newCanvas.appendChild(slot);
+
+      if (oldCanvas && oldCanvas.parentNode) {
+        oldCanvas.parentNode.replaceChild(newCanvas, oldCanvas);
+      } else {
+        this.shadowRoot.appendChild(newCanvas);
+      }
+      this.canvas = newCanvas;
+      this.slotElement = slot;
+    }
+
+    this.extractSlides();
+    this.setupPageflip();
   }
 
   // Public Methods
@@ -228,6 +247,14 @@ export class HICPageflip extends BaseElement {
   }
 
   set engine(val) {
+    this.switchEngine(val);
+  }
+
+  get engineMode() {
+    return this._engineMode;
+  }
+
+  set engineMode(val) {
     this.switchEngine(val);
   }
 

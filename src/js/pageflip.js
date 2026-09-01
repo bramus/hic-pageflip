@@ -45,33 +45,20 @@ export class Pageflip {
     }
   }
 
+  setSlides(slides) {
+    this.slides = slides || [];
+    this.totalPages = this.slides.length;
+    if (this.engine) {
+      this.engine.slides = this.slides;
+    }
+  }
+
   switchEngine(engineMode) {
     if (this.engineMode === engineMode && this.engine) return;
     this.engineMode = engineMode;
 
-    const oldCanvas = this.canvas;
-    const newCanvas = oldCanvas.cloneNode(true);
-    oldCanvas.parentNode.replaceChild(newCanvas, oldCanvas);
-    this.canvas = newCanvas;
-
-    if (!this.canvas.hasAttribute('layoutsubtree')) {
-      this.canvas.setAttribute('layoutsubtree', '');
-    }
-
-    const pw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset?.pageflipWidth, 10) || 1024;
-    const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset?.pageflipHeight, 10) || 768;
-
-    const slideElements = Array.from(this.canvas.querySelectorAll('hic-pageflip-page'));
-    this.slides = slideElements.map((el, index) => ({
-      pageNum: index + 1,
-      element: el,
-      pw,
-      ph
-    }));
-
     this.createEngine(engineMode);
-    this.setDimensions(pw, ph);
-    this.bindEvents();
+    this.setDimensions(this.pw, this.ph);
     this.render();
   }
 
