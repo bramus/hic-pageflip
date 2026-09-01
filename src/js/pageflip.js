@@ -1,7 +1,7 @@
 /**
  * Pageflip Controller & Interaction Engine.
- * Manages state, gesture interactions (mouse/touch), corner hover peeks,
- * spring-eased animations, page navigation, and active engine coordination.
+ * Standalone class that manages page flip state, gesture interactions (mouse/touch),
+ * corner hover peeks, animations, and active engine (2D/3D) rendering on a canvas.
  */
 
 import { constrainPaper, Easing, clamp } from './math.js';
@@ -26,6 +26,7 @@ export class Pageflip {
 
     // Auto-flip animation state
     this.animation = null;
+    this._rafLoopId = null;
 
     // Callbacks
     this.onPageChange = options.onPageChange || null;
@@ -45,7 +46,7 @@ export class Pageflip {
   }
 
   switchEngine(engineMode) {
-    if (this.engineMode === engineMode) return;
+    if (this.engineMode === engineMode && this.engine) return;
     this.engineMode = engineMode;
 
     const oldCanvas = this.canvas;
@@ -64,8 +65,8 @@ export class Pageflip {
     this.slides = slideElements.map((el, index) => ({
       pageNum: index + 1,
       element: el,
-      pw: pw,
-      ph: ph
+      pw,
+      ph
     }));
 
     this.createEngine(engineMode);
@@ -173,35 +174,65 @@ export class Pageflip {
 
   bindEvents() {
     const el = this.canvas;
+    if (!el) return;
+
+    this._onPointerMove = (e) => this.handlePointerMove(e);
+    this._onPointerDown = (e) => this.handlePointerDown(e);
+    this._onPointerUp = (e) => this.handlePointerUp(e);
+    this._onPointerLeave = () => this.handlePointerLeave();
+    this._onTouchStart = (e) => this.handleTouchStart(e);
+    this._onTouchMove = (e) => this.handleTouchMove(e);
+    this._onTouchEnd = (e) => this.handleTouchEnd(e);
+    this._onPaint = () => this.handlePaint();
 
     // Mouse events
-    el.addEventListener('mousemove', (e) => this.handlePointerMove(e));
-    el.addEventListener('mousedown', (e) => this.handlePointerDown(e));
-    window.addEventListener('mouseup', (e) => this.handlePointerUp(e));
-    el.addEventListener('mouseleave', () => this.handlePointerLeave());
+    el.addEventListener('mousemove', this._onPointerMove);
+    el.addEventListener('mousedown', this._onPointerDown);
+    window.addEventListener('mouseup', this._onPointerUp);
+    el.addEventListener('mouseleave', this._onPointerLeave);
 
     // Touch events
-    el.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
-    el.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
-    window.addEventListener('touchend', (e) => this.handleTouchEnd(e));
-    window.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
+    el.addEventListener('touchstart', this._onTouchStart, { passive: false });
+    el.addEventListener('touchmove', this._onTouchMove, { passive: false });
+    window.addEventListener('touchend', this._onTouchEnd);
+    window.addEventListener('touchcancel', this._onTouchEnd);
 
     // Paint listener
-    const onPaint = () => this.handlePaint();
-    el.onpaint = onPaint;
-    el.addEventListener('paint', onPaint);
+    el.onpaint = this._onPaint;
+    el.addEventListener('paint', this._onPaint);
   }
 
-  /**
-   * Detects if pointer is near interactive flip areas / corners
-   */
+  unbindEvents() {
+    const el = this.canvas;
+    if (!el) return;
+
+    el.removeEventListener('mousemove', this._onPointerMove);
+    el.removeEventListener('mousedown', this._onPointerDown);
+    window.removeEventListener('mouseup', this._onPointerUp);
+    el.removeEventListener('mouseleave', this._onPointerLeave);
+
+    el.removeEventListener('touchstart', this._onTouchStart);
+    el.removeEventListener('touchmove', this._onTouchMove);
+    window.removeEventListener('touchend', this._onTouchEnd);
+    window.removeEventListener('touchcancel', this._onTouchEnd);
+
+    el.removeEventListener('paint', this._onPaint);
+  }
+
+  destroy() {
+    this.unbindEvents();
+    if (this._rafLoopId) {
+      cancelAnimationFrame(this._rafLoopId);
+      this._rafLoopId = null;
+    }
+  }
+
   detectCorner(bookX, bookY) {
     const pw = this.pw;
     const ph = this.ph;
     const cornerSize = Math.min(pw * 0.35, 180);
     const [leftPage, rightPage] = this.currentSpread;
 
-    // Right page active corners (can flip forward if right page exists)
     if (rightPage <= this.totalPages) {
       if (bookX > pw - cornerSize && bookX <= pw) {
         if (bookY > ph / 2 - cornerSize) return 'br';
@@ -209,7 +240,6 @@ export class Pageflip {
       }
     }
 
-    // Left page active corners (can flip backward if left page exists)
     if (leftPage > 0) {
       if (bookX < -pw + cornerSize && bookX >= -pw) {
         if (bookY > ph / 2 - cornerSize) return 'bl';
@@ -242,7 +272,6 @@ export class Pageflip {
       return;
     }
 
-    // Hover Corner Peek
     const corner = this.detectCorner(bookPt.x, bookPt.y);
     if (corner !== this.hoverCorner) {
       this.hoverCorner = corner;
@@ -280,7 +309,7 @@ export class Pageflip {
       this.endCornerPeek();
     }
     this.hoverCorner = null;
-    this.canvas.style.cursor = 'default';
+    if (this.canvas) this.canvas.style.cursor = 'default';
   }
 
   handleTouchStart(e) {
@@ -404,7 +433,7 @@ export class Pageflip {
       isPeek: false
     };
 
-    this.canvas.style.cursor = 'grabbing';
+    if (this.canvas) this.canvas.style.cursor = 'grabbing';
   }
 
   updateDrag(bookX, bookY) {
@@ -422,7 +451,7 @@ export class Pageflip {
 
   endDrag() {
     this.isDragging = false;
-    this.canvas.style.cursor = 'default';
+    if (this.canvas) this.canvas.style.cursor = 'default';
     if (!this.activeFlip) return;
 
     const pw = this.pw;
@@ -430,13 +459,10 @@ export class Pageflip {
     const dragX = flip.px;
     const vx = this.velocity.x;
 
-    // Decision to complete flip or cancel back
     let complete = false;
     if (flip.dir > 0) {
-      // Forward flip: pulled past center line or fast leftward flick
       complete = dragX < 0 || vx < -0.4;
     } else {
-      // Backward flip: pulled past center line or fast rightward flick
       complete = dragX > 0 || vx > 0.4;
     }
 
@@ -632,8 +658,8 @@ export class Pageflip {
         this.animation.tick(now);
       }
       this.render();
-      requestAnimationFrame(loop);
+      this._rafLoopId = requestAnimationFrame(loop);
     };
-    requestAnimationFrame(loop);
+    this._rafLoopId = requestAnimationFrame(loop);
   }
 }

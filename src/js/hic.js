@@ -1,15 +1,14 @@
 /**
- * HTML-in-Canvas (HIC) Application Controller for Pageflip.
+ * HTML-in-Canvas (HIC) Application Controller for PageFlip.
  * Manages UI controls, theme selector, URL parameters, keyboard shortcuts,
- * and delegates all pageflip lifecycle & rendering interactions exclusively to Pageflip.
+ * and communicates directly with the <hic-pageflip> custom element.
  */
 
-import { Pageflip } from './pageflip.js';
+import './hic-pageflip.js';
 
 export class HICApp {
   constructor() {
-    this.canvas = document.getElementById('book-canvas');
-    this.container = document.getElementById('book-container');
+    this.pageflip = document.querySelector('hic-pageflip');
     this.prevBtn = document.getElementById('prev-btn');
     this.nextBtn = document.getElementById('next-btn');
     this.pageInput = document.getElementById('page-input');
@@ -20,36 +19,8 @@ export class HICApp {
     this.themeSelect = document.getElementById('theme-select');
 
     this.engineMode = '2d'; // '2d' or '3d'
-    this.slides = [];
-    this.pageflip = null;
 
     this.init();
-  }
-
-  applyDimensions() {
-    const pw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset?.pageflipWidth, 10) || 1024;
-    const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset?.pageflipHeight, 10) || 768;
-    const bg = this.canvas.getAttribute('data-pageflip-background') || this.canvas.dataset?.pageflipBackground || 'white';
-
-    this.canvas.style.setProperty('--pageflip-width', `${pw}px`);
-    this.canvas.style.setProperty('--pageflip-height', `${ph}px`);
-    this.canvas.style.setProperty('--pageflip-background', bg);
-
-    if (this.pageflip) {
-      this.pageflip.setDimensions(pw, ph);
-      this.pageflip.resize();
-    }
-  }
-
-  switchEngine(engineMode) {
-    if (this.engineMode === engineMode) return;
-    this.engineMode = engineMode;
-
-    if (this.pageflip) {
-      this.pageflip.switchEngine(engineMode);
-      this.canvas = this.pageflip.canvas;
-      this.applyDimensions();
-    }
   }
 
   checkHICSupport() {
@@ -69,26 +40,13 @@ export class HICApp {
       if (warningBanner) warningBanner.hidden = true;
     }
 
-    if (!this.canvas.hasAttribute('layoutsubtree')) {
-      this.canvas.setAttribute('layoutsubtree', '');
-    }
+    if (!this.pageflip) return;
 
-    // 1. Extract slides from canvas child elements
-    const pw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset?.pageflipWidth, 10) || 1024;
-    const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset?.pageflipHeight, 10) || 768;
-
-    const slideElements = Array.from(this.canvas.querySelectorAll('.slide'));
-    this.slides = slideElements.map((el, index) => ({
-      pageNum: index + 1,
-      element: el,
-      pw: pw,
-      ph: ph
-    }));
-
-    // 2. Determine engine mode from URL param ?engine=2d or ?engine=3d
+    // 1. Determine engine mode from URL param ?engine=2d or ?engine=3d
     const urlParams = new URLSearchParams(window.location.search);
     const engineParam = urlParams.get('engine');
     this.engineMode = engineParam === '3d' ? '3d' : '2d';
+    this.pageflip.engineMode = this.engineMode;
 
     const link2D = document.getElementById('engine-link-2d');
     const link3D = document.getElementById('engine-link-3d');
@@ -106,47 +64,8 @@ export class HICApp {
       }
     }
 
-    // 3. Apply canvas dimensions and background variables before textures load
-    this.applyDimensions();
-
-    const totalPages = this.slides.length || 6;
-
-    // 4. Initialize Pageflip (which creates and manages its engine)
-    this.pageflip = new Pageflip(this.canvas, this.slides, {
-      engine: this.engineMode,
-      totalPages,
-      onPageChange: (state) => this.onPageChanged(state)
-    });
-
-    this.pageflip.resize();
-
-    // 5. Observe attribute changes for dynamic width/height/background
-    const attrObserver = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        if (m.type === 'attributes' && (m.attributeName === 'data-pageflip-width' || m.attributeName === 'data-pageflip-height' || m.attributeName === 'data-pageflip-background')) {
-          this.applyDimensions();
-          this.pageflip.render();
-        }
-      }
-    });
-    attrObserver.observe(this.canvas, { attributes: true, attributeFilter: ['data-pageflip-width', 'data-pageflip-height', 'data-pageflip-background'] });
-
-    // 6. Handle container resize with ResizeObserver
-    const observer = new ResizeObserver(() => {
-      this.pageflip.resize();
-      this.pageflip.render();
-    });
-    observer.observe(this.container || this.canvas);
-
-    // 7. Handle selection and focus updates
-    const triggerPaintUpdate = () => {
-      this.pageflip.requestRender();
-    };
-    document.addEventListener('selectionchange', triggerPaintUpdate);
-    document.addEventListener('focusin', triggerPaintUpdate);
-    document.addEventListener('focusout', triggerPaintUpdate);
-
-    // 8. Setup UI bindings
+    // 2. Setup UI bindings
+    const totalPages = this.pageflip.totalPages || 6;
     this.totalPagesSpan.textContent = totalPages;
     this.pageInput.max = totalPages;
     this.timelineSlider.max = totalPages;
@@ -156,9 +75,9 @@ export class HICApp {
   }
 
   bindEvents() {
-    window.addEventListener('resize', () => {
-      this.pageflip.resize();
-      this.pageflip.render();
+    // Listen for custom element pagechange events
+    this.pageflip.addEventListener('pagechange', (e) => {
+      this.onPageChanged(e.detail);
     });
 
     this.prevBtn.addEventListener('click', () => this.pageflip.flipBackward());
@@ -198,6 +117,14 @@ export class HICApp {
         this.pageflip.reloadTextures();
       });
     }
+
+    // Handle selection and focus updates
+    const triggerPaintUpdate = () => {
+      this.pageflip.requestRender();
+    };
+    document.addEventListener('selectionchange', triggerPaintUpdate);
+    document.addEventListener('focusin', triggerPaintUpdate);
+    document.addEventListener('focusout', triggerPaintUpdate);
 
     // Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {

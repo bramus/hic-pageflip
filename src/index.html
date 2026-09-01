@@ -39,17 +39,6 @@
       overflow: hidden;
     }
 
-    /* Full-viewport canvas */
-    #book-canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
-      touch-action: none;
-    }
-
     /* The slides */
     @property --pageflip-width {
       syntax: '<length>';
@@ -69,6 +58,7 @@
       inherits: true;
     }
 
+    hic-pageflip,
     canvas {
       --pageflip-width: attr(data-pageflip-width px, 1024px);
       --pageflip-height: attr(data-pageflip-height px, 768px);
@@ -260,9 +250,9 @@
         </svg>
       </button>
 
-      <!-- Book Canvas Stage with layoutsubtree -->
+      <!-- Book Pageflip Stage -->
       <div id="book-container" class="book-container">
-        <canvas id="book-canvas" layoutsubtree data-pageflip-width="1024" data-pageflip-height="768" data-pageflip-background="white">
+        <hic-pageflip id="book-pageflip" engine="2d" page-width="1024" page-height="768" page-background="white">
           <!-- Slide 1 -->
           <div class="slide">
             <div class="content">
@@ -314,7 +304,7 @@
               <h1>FIN.</h1>
             </div>
           </div>
-        </canvas>
+        </hic-pageflip>
       </div>
 
       <!-- Quick Corner Peel Hint -->
