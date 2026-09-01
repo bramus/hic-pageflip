@@ -61,7 +61,7 @@ export class Pageflip {
     const pw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset?.pageflipWidth, 10) || 1024;
     const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset?.pageflipHeight, 10) || 768;
 
-    const slideElements = Array.from(this.canvas.querySelectorAll('.slide'));
+    const slideElements = Array.from(this.canvas.querySelectorAll('hic-pageflip-page'));
     this.slides = slideElements.map((el, index) => ({
       pageNum: index + 1,
       element: el,

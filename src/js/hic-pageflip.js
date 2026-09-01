@@ -5,6 +5,7 @@
  */
 
 import { Pageflip } from './pageflip.js';
+import './hic-pageflip-page.js';
 
 const BaseElement = typeof HTMLElement !== 'undefined' ? HTMLElement : class {};
 
@@ -114,8 +115,8 @@ export class HICPageflip extends BaseElement {
     const ph = this.pageHeight;
     const assigned = this.slotElement ? this.slotElement.assignedElements() : [];
     const slideElements = assigned.length > 0
-      ? assigned.filter((el) => el.matches('.slide') || el.classList?.contains('slide'))
-      : Array.from(this.querySelectorAll('.slide'));
+      ? assigned.filter((el) => el.matches('hic-pageflip-page') || el.tagName.toLowerCase() === 'hic-pageflip-page')
+      : Array.from(this.querySelectorAll('hic-pageflip-page'));
 
     this.slides = slideElements.map((el, index) => ({
       pageNum: index + 1,
@@ -133,12 +134,6 @@ export class HICPageflip extends BaseElement {
     this.style.setProperty('--pageflip-width', `${pw}px`);
     this.style.setProperty('--pageflip-height', `${ph}px`);
     this.style.setProperty('--pageflip-background', bg);
-
-    if (this.canvas) {
-      this.canvas.style.setProperty('--pageflip-width', `${pw}px`);
-      this.canvas.style.setProperty('--pageflip-height', `${ph}px`);
-      this.canvas.style.setProperty('--pageflip-background', bg);
-    }
 
     if (this.pageflip) {
       this.pageflip.setDimensions(pw, ph);
