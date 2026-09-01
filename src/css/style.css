@@ -155,18 +155,6 @@ html, body {
   -webkit-text-fill-color: transparent;
 }
 
-.brand-badge {
-  font-size: 0.65rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.2rem 0.45rem;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-muted);
-  border: 1px solid var(--border-glass);
-}
-
 .book-dropdown, .theme-dropdown {
   background: var(--bg-surface);
   color: var(--text-main);
@@ -236,6 +224,29 @@ html, body {
   color: #ffffff;
   background: var(--accent-primary);
   box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.github-link svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.github-link:hover {
+  color: var(--text-main);
+  opacity: 1;
+  transform: translateY(-1px);
 }
 
 .book-info {
@@ -486,7 +497,7 @@ html, body {
   .app-header {
     padding: 0 0.75rem;
   }
-  .brand-badge, .btn-text, .theme-picker-wrapper {
+  .btn-text, .theme-picker-wrapper {
     display: none;
   }
   .side-nav-btn {
