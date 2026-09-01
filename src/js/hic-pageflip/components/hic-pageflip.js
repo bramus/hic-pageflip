@@ -4,7 +4,7 @@
  * light-DOM slide elements directly into the canvas without manual node manipulation.
  */
 
-import { Pageflip } from './pageflip.js';
+import { Pageflip } from '../core/pageflip.js';
 import './hic-pageflip-page.js';
 
 const BaseElement = typeof HTMLElement !== 'undefined' ? HTMLElement : class {};

@@ -4,7 +4,7 @@
  * and communicates directly with the <hic-pageflip> custom element.
  */
 
-import './hic-pageflip.js';
+import './hic-pageflip/index.js';
 
 export class HICApp {
   constructor() {

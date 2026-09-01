@@ -4,9 +4,9 @@
  * corner hover peeks, animations, and active engine (2D/3D) rendering on a canvas.
  */
 
-import { constrainPaper, Easing, clamp } from './math.js';
-import { HICPageflipEngine2D } from './engine-2d.js';
-import { HICPageflipEngine3D } from './engine-3d.js';
+import { constrainPaper, Easing, clamp } from './utils/math.js';
+import { HICPageflipEngine2D } from './engines/engine-2d.js';
+import { HICPageflipEngine3D } from './engines/engine-3d.js';
 
 export class Pageflip {
   constructor(canvas, slides = [], options = {}) {

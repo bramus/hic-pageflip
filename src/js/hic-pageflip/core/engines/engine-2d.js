@@ -5,7 +5,7 @@
  */
 
 import { BaseEngine } from './engine-base.js';
-import { calculateFold, clamp } from './math.js';
+import { calculateFold, clamp } from '../utils/math.js';
 
 export class HICPageflipEngine2D extends BaseEngine {
   constructor(canvas, slides = []) {
