@@ -6,6 +6,7 @@
  */
 
 import { BaseEngine } from './engine-base.js';
+import { clamp } from '../utils/math.js';
 
 export class HICPageflipEngine3D extends BaseEngine {
   constructor(canvas, slides = []) {
@@ -78,10 +79,11 @@ export class HICPageflipEngine3D extends BaseEngine {
       uniform float uIsActive;  // 1.0 if curling, 0.0 if flat
       uniform float uDepthOffset; // Negative Z offset for underneath pages to prevent Z-fighting
 
-      // Chris Luke's Cylindrical Parameters
+      // Chris Luke's Cylindrical & Conical Parameters
       uniform float uTheta;     // Cylinder angle in x,y plane
       uniform vec2 uCylBase;    // (B, A) origin of cylinder base
       uniform float uC;         // Radius of cylinder C
+      uniform float uOriginY;   // Y origin of the peel corner (+ph/2 for bottom, -ph/2 for top, 0.0 for center)
 
       varying vec2 vUv;
       varying vec2 vBackUv;
@@ -108,8 +110,14 @@ export class HICPageflipEngine3D extends BaseEngine {
         if (uIsActive > 0.5) {
           float A = uCylBase.y;
           float B = uCylBase.x;
-          float C = max(0.1, uC);
           float theta = uTheta;
+
+          // Conical radius calculation: tapers radius C towards 0 at the origin edge on diagonal pulls
+          float ph = uPageSize.y;
+          float distFromOrigin = abs(vy - uOriginY);
+          float coneT = clamp(distFromOrigin / ph, 0.0, 1.0);
+          float diagFactor = abs(cos(theta));
+          float C = max(0.01, uC * mix(1.0, coneT, diagFactor));
 
           float tanTheta = tan(theta);
           if (abs(tanTheta) < 0.0001) tanTheta = 0.0001 * sign(tanTheta);
@@ -160,6 +168,17 @@ export class HICPageflipEngine3D extends BaseEngine {
             v1.y = vRot.y + vy;
             v1.z = C * (1.0 - cos(beta));
             norm = vec3(-sin(beta) * cos(theta), -sin(beta) * sin(theta), cos(beta));
+          }
+
+          // Boundary constraint: never allow the edge vertices to bulge outside sheet bounds
+          if (uOriginY > 0.0) {
+            if (vy >= uPageSize.y * 0.499) {
+              v1.y = min(v1.y, uPageSize.y * 0.5);
+            }
+          } else if (uOriginY < 0.0) {
+            if (vy <= -uPageSize.y * 0.499) {
+              v1.y = max(v1.y, -uPageSize.y * 0.5);
+            }
           }
 
           // If turning left page backward, reflect horizontally across spine
@@ -554,10 +573,12 @@ export class HICPageflipEngine3D extends BaseEngine {
       gl.uniform1f(gl.getUniformLocation(this.program, 'uTheta'), cylInfo.theta);
       gl.uniform2f(gl.getUniformLocation(this.program, 'uCylBase'), cylInfo.B, cylInfo.A);
       gl.uniform1f(gl.getUniformLocation(this.program, 'uC'), cylInfo.C);
+      gl.uniform1f(gl.getUniformLocation(this.program, 'uOriginY'), cylInfo.originY !== undefined ? cylInfo.originY : 0.0);
     } else {
       gl.uniform1f(gl.getUniformLocation(this.program, 'uTheta'), Math.PI / 2);
       gl.uniform2f(gl.getUniformLocation(this.program, 'uCylBase'), 0.0, 0.0);
       gl.uniform1f(gl.getUniformLocation(this.program, 'uC'), 24.0);
+      gl.uniform1f(gl.getUniformLocation(this.program, 'uOriginY'), 0.0);
     }
 
     // Set winding order for mirrored left-page flips and restore
@@ -608,7 +629,7 @@ export class HICPageflipEngine3D extends BaseEngine {
     let theta = angle - Math.PI / 2.0;
     while (theta <= 0.05) theta += Math.PI;
     while (theta >= Math.PI - 0.05) theta -= Math.PI;
-    theta = Math.max(0.15, Math.min(Math.PI - 0.15, theta));
+    theta = clamp(theta, Math.PI * 0.25, Math.PI * 0.75);
 
     // Midpoint fold crease base (B, A)
     const midX = (sx + px) / 2.0;
@@ -625,7 +646,8 @@ export class HICPageflipEngine3D extends BaseEngine {
       theta,
       B: midX - (C * Math.PI * 0.5) * Math.sin(theta),
       A: midY,
-      C
+      C,
+      originY: flip.sy
     };
 
     // Draw single-pass double-sided turning sheet
