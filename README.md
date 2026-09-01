@@ -2,7 +2,7 @@
 
 An interactive page flip book viewer powered by the [**HTML-in-Canvas** web API](https://developer.chrome.com/blog/html-in-canvas-origin-trial).
 
-[![A slide in the book with HIC in the top right](./assets/hic-pageflip.png)](https://hic-pageflip.netlify.app/)
+[![A slide in the book with HIC in the top right](https://github.com/bramus/hic-pageflip/raw/main/assets/hic-pageflip.png)](https://hic-pageflip.netlify.app/)
 
 > [!WARNING]
 > **HTML-in-Canvas is experimental technology.**
