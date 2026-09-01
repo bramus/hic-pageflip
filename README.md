@@ -273,4 +273,4 @@ npm run deploy
 
 ## License
 
-[MIT](package.json) © [Bramus Van Damme](https://www.bram.us)
+[MIT](LICENSE) © [Bramus Van Damme](https://www.bram.us)
