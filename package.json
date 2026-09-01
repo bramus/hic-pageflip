@@ -1,7 +1,7 @@
 {
-  "name": "pageflip",
+  "name": "hic-pageflip",
   "version": "1.0.0",
-  "description": "Interactive HTML5 Canvas and HTML-in-Canvas Flipbook",
+  "description": "Interactive page flip book viewer built with HTML-in-Canvas",
   "type": "module",
   "scripts": {
     "start": "npx -y serve src",
