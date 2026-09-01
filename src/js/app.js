@@ -18,7 +18,7 @@ export class HICApp {
     this.spreadIndicator = document.getElementById('spread-indicator');
     this.themeSelect = document.getElementById('theme-select');
 
-    this.engineMode = '2d'; // '2d' or '3d'
+    this.engineMode = this.pageflip.getAttribute('engine') || '2d';
 
     this.init();
   }
@@ -45,7 +45,9 @@ export class HICApp {
     // 1. Determine engine mode from URL param ?engine=2d or ?engine=3d
     const urlParams = new URLSearchParams(window.location.search);
     const engineParam = urlParams.get('engine');
-    this.engineMode = engineParam === '3d' ? '3d' : '2d';
+    if (engineParam) {
+      this.engineMode = engineParam === '3d' ? '3d' : '2d';
+    }
     this.pageflip.engineMode = this.engineMode;
 
     const pageParam = urlParams.get('page');
