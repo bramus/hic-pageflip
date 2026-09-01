@@ -147,6 +147,31 @@
       font-size: 0.88em;
     }
 
+    .credits {
+      position: absolute;
+      bottom: 1rem;
+      right: 1rem;
+      left: 1rem;
+      width: auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .name-avatar {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+
+      img {
+        width: 1lh;
+        height: 1lh;
+        border-radius: 50%;
+        border: 1px solid currentColor;
+      }
+    }
+
     @keyframes bannerSlideDown {
       from {
         opacity: 0;
@@ -277,6 +302,7 @@
           <hic-pageflip-page>
             <div class="content">
               <h1>FIN.</h1>
+              <p class="credits">By <span class="name-avatar"><img src="https://www.bram.us/sandbox/mugshots/2018-06.jpg" alt="Bramus" height="50" width="50" crossorigin="anonymous"> <a href="https://www.bram.us/">Bramus</a></span></p>
             </div>
           </hic-pageflip-page>
         </hic-pageflip>
