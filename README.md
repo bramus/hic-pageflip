@@ -1,6 +1,8 @@
-# hic-pageflip
+# `<hic-pageflip>`
 
-An interactive page flip book viewer built with the experimental **HTML-in-Canvas** web API.
+An interactive page flip book viewer powered by the [**HTML-in-Canvas** web API](https://developer.chrome.com/blog/html-in-canvas-origin-trial).
+
+[![A slide in the book with HIC in the top right](./assets/hic-pageflip.png)](https://hic-pageflip.netlify.app/)
 
 > [!WARNING]
 > **HTML-in-Canvas is experimental technology.**
@@ -10,30 +12,24 @@ An interactive page flip book viewer built with the experimental **HTML-in-Canva
 
 ## Overview
 
-`hic-pageflip` allows you to render interactive, flip-book style page presentations where every page is composed of **real, accessible DOM elements** (with selectable text, live links, CSS animations, and rich markup), while being deformed and rendered through high-performance 2D Canvas or 3D WebGL deformation pipelines.
+`<hic-pageflip>` allows you to render interactive, flip-book style page presentations where every page is composed of **real, accessible DOM elements** (with selectable text, live links, CSS animations, and rich markup), while being deformed and rendered through high-performance 2D Canvas or 3D WebGL deformation pipelines.
+
+[Try a live demo](https://hic-pageflip.netlify.app/)
 
 ---
 
 ## Prerequisites
 
-To view and interact with `hic-pageflip`, you need a browser that supports the **HTML-in-Canvas** API (e.g. Chrome Canary):
+To view and interact with `<hic-pageflip>`, you need a browser that supports the **HTML-in-Canvas** API (e.g. Chrome):
 
-1. **Browser**: Google Chrome Canary (v134+ recommended).
-2. **Flag**: Enable `chrome://flags/#enable-experimental-web-platform-features` or launch with:
-   ```bash
-   google-chrome-canary --enable-blink-features=HTMLInCanvas
-   ```
-3. **APIs required**:
-   - `<canvas layoutsubtree>` element attribute.
-   - `CanvasRenderingContext2D.prototype.drawElementImage` (for 2D engine).
-   - `WebGLRenderingContext.prototype.texElementImage2D` (for 3D engine).
-   - `HTMLCanvasElement.prototype.updateElementGeometry` (for DOM hit-testing alignment).
+1. **Browser**: Google Chrome (v149+ recommended).
+2. **Flag**: Enable `chrome://flags/#canvas-draw-element`
 
 ---
 
 ## Rendering Engines
 
-`hic-pageflip` comes equipped with two distinct rendering engines that can be switched dynamically at runtime via the `engine` attribute or property:
+`<hic-pageflip>` comes equipped with two distinct rendering engines that can be switched dynamically at runtime via the `engine` attribute or property:
 
 ### 1. 2D Engine (`engine="2d"`)
 - **Class**: [`HICPageflipEngine2D`](src/js/hic-pageflip/core/engines/engine-2d.js)
@@ -63,7 +59,7 @@ To view and interact with `hic-pageflip`, you need a browser that supports the *
 <script type="module" src="./js/hic-pageflip/index.js"></script>
 
 <hic-pageflip engine="3d" page-width="1024" page-height="768" page-background="#ffffff">
-  <!-- Slide 1: Cover (Right Desk) -->
+  <!-- Slide 1: Cover -->
   <hic-pageflip-page>
     <div class="content">
       <h1>Cover Page</h1>
@@ -71,7 +67,7 @@ To view and interact with `hic-pageflip`, you need a browser that supports the *
     </div>
   </hic-pageflip-page>
 
-  <!-- Slide 2: Left Desk -->
+  <!-- Slide 2 -->
   <hic-pageflip-page>
     <div class="content">
       <h2>Inside Left Page</h2>
@@ -79,13 +75,39 @@ To view and interact with `hic-pageflip`, you need a browser that supports the *
     </div>
   </hic-pageflip-page>
 
-  <!-- Slide 3: Right Desk -->
+  <!-- Slide 3 -->
   <hic-pageflip-page>
     <div class="content">
       <h2>Inside Right Page</h2>
     </div>
   </hic-pageflip-page>
+
+  <!-- Slide 4: Backcover -->
+  <hic-pageflip-page>
+    <div class="content">
+      <h2>Backcover</h2>
+      <p>This is the backcover page.</p>
+    </div>
+  </hic-pageflip-page>
 </hic-pageflip>
+```
+
+To prevent a FOUC while the custom elements are not defined, add the following CSS:
+
+```css
+/* Prevent Flash of Undefined Custom Elements (FOUC) */
+hic-pageflip:not(:defined),
+hic-pageflip-page:not(:defined) {
+  display: none !important;
+}
+
+/* Fade-in hic-pageflip once defined */
+hic-pageflip:defined {
+  transition: opacity 0.35s ease-out;
+  @starting-style {
+    opacity: 0;
+  }
+}
 ```
 
 ### Attributes & Properties
@@ -101,29 +123,29 @@ To view and interact with `hic-pageflip`, you need a browser that supports the *
 ### Methods
 
 ```javascript
-const flipbook = document.querySelector('hic-pageflip');
+const pageflip = document.querySelector('hic-pageflip');
 
 // Navigate forwards by one spread
-flipbook.flipForward();
+pageflip.flipForward();
 
 // Navigate backwards by one spread
-flipbook.flipBackward();
+pageflip.flipBackward();
 
 // Jump to a specific page number
-flipbook.gotoPage(4);
+pageflip.gotoPage(4);
 
 // Switch rendering engine
-flipbook.engine = '3d'; // or '2d'
+pageflip.engine = '3d'; // or '2d'
 
 // Reload textures from DOM
-flipbook.reloadTextures();
+pageflip.reloadTextures();
 ```
 
 ### Events
 
 - **`pagechange`**: Fired when the active spread changes upon completing a flip.
   ```javascript
-  flipbook.addEventListener('pagechange', (e) => {
+  pageflip.addEventListener('pagechange', (e) => {
     console.log('Current page:', e.detail.currentPage);
     console.log('Current spread:', e.detail.currentSpread); // e.g. [2, 3]
   });
@@ -132,32 +154,24 @@ flipbook.reloadTextures();
 
 ---
 
-## Folder Structure
+## Package Folder Structure
 
 ```
-pageflip/
+hic-pageflip
 ├── package.json
 ├── README.md
-└── src/
-    ├── index.html              # Demo shell, UI buttons, and slides markup
-    ├── css/
-    │   ├── app.css             # UI theme, layout, timeline styles
-    │   └── presentation.css    # Typography, slide content, slide designs
-    └── js/
-        ├── app.js              # Application entry point & demo UI controller
-        └── hic-pageflip/       # Core package
-            ├── index.js        # Main entry point exporting Custom Elements
-            ├── components/
-            │   ├── hic-pageflip.js       # <hic-pageflip> Web Component
-            │   └── hic-pageflip-page.js  # <hic-pageflip-page> Web Component
-            └── core/
-                ├── pageflip.js           # Core Pageflip state machine & gestures
-                ├── engines/
-                │   ├── engine-base.js    # BaseEngine abstract base class
-                │   ├── engine-2d.js      # HICPageflipEngine2D (2D Canvas)
-                │   └── engine-3d.js      # HICPageflipEngine3D (3D WebGL)
-                └── utils/
-                    └── math.js           # Fold math, easing curves, constraints
+├── index.js                  # Main entry point exporting Custom Elements
+├── components/
+│   ├── hic-pageflip.js       # <hic-pageflip> Web Component
+│   └── hic-pageflip-page.js  # <hic-pageflip-page> Web Component
+└── core/
+    ├── pageflip.js           # Core Pageflip state machine & gestures
+    ├── engines/
+    │   ├── engine-base.js    # BaseEngine abstract base class
+    │   ├── engine-2d.js      # HICPageflipEngine2D (2D Canvas)
+    │   └── engine-3d.js      # HICPageflipEngine3D (3D WebGL)
+    └── utils/
+        └── math.js           # Fold math, easing curves, constraints
 ```
 
 ---
