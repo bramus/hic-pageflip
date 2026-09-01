@@ -39,6 +39,19 @@
       overflow: hidden;
     }
 
+    /* Prevent Flash of Undefined Custom Elements (FOUC) */
+    hic-pageflip:not(:defined),
+    hic-pageflip-page:not(:defined) {
+      display: none !important;
+    }
+
+    hic-pageflip:defined {
+      transition: opacity 0.35s ease-out;
+      @starting-style {
+        opacity: 0;
+      }
+    }
+
     hic-pageflip-page {
       display: grid;
       place-content: center;
