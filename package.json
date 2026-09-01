@@ -3,7 +3,15 @@
   "version": "1.0.0",
   "description": "Interactive page flip book viewer built with HTML-in-Canvas",
   "type": "module",
+  "main": "./index.js",
+  "module": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
   "scripts": {
+    "build": "node scripts/build.js",
+    "prepublishOnly": "if [ -z $PUBLISH ]; then echo 'This package must be published using `npm run pub`\n' && exit 1; fi",
+    "pub": "PUBLISH=true npm run build && npm publish ./dist",
     "start": "npx -y serve src",
     "dev": "npx -y serve src",
     "deploy": "netlify deploy --dir=src --prod"
