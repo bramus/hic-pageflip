@@ -20,9 +20,20 @@
     "pageflip",
     "canvas",
     "flipbook",
-    "html5",
     "html-in-canvas"
   ],
-  "author": "Bramus Van Damme",
-  "license": "MIT"
+  "author": {
+    "name": "Bramus Van Damme",
+    "email": "bramus@bram.us",
+    "url": "https://www.bram.us/"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bramus/hic-pageflip.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bramus/hic-pageflip/issues"
+  },
+  "homepage": "https://hic-pageflip.netlify.app"
 }
