@@ -333,7 +333,3 @@ export class HICPageflip extends BaseElement {
     this.setAttribute('page-background', val);
   }
 }
-
-if (typeof customElements !== 'undefined' && !customElements.get('hic-pageflip')) {
-  customElements.define('hic-pageflip', HICPageflip);
-}

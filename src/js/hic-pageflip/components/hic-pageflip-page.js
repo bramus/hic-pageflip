@@ -37,7 +37,3 @@ export class HICPageflipPage extends BaseElement {
     }
   }
 }
-
-if (typeof customElements !== 'undefined' && !customElements.get('hic-pageflip-page')) {
-  customElements.define('hic-pageflip-page', HICPageflipPage);
-}
