@@ -27,33 +27,27 @@ To view and interact with `<hic-pageflip>`, you need a browser that supports the
 
 ---
 
-## Rendering Engines
+## Installation & Usage
 
-`<hic-pageflip>` comes equipped with two distinct rendering engines that can be switched dynamically at runtime via the `engine` attribute or property:
+### Installation
 
-### 1. 2D Engine (`engine="2d"`)
-- **Class**: [`HICPageflipEngine2D`](src/js/hic-pageflip/core/engines/engine-2d.js)
-- **Technology**: 2D Canvas context with direct DOM element drawing via `ctx.drawElementImage()`.
-- **Techniques**:
-  - **Geometric Fold Clipping**: Uses half-plane clipping (`clipHalfPlane`) to separate the stationary spread, underneath revealed pages, and turning flap.
-  - **Affine Reflection**: Performs 2D affine matrix reflection across the dynamic fold crease line.
-  - **Dynamic Lighting**: Renders drop shadows cast under the fold crease and spine gutter shadows.
-  - **Pre-warmed Paint Records**: Pre-warms slide paint records to eliminate unstyled content flashing during initial corner peeks.
+```bash
+npm install hic-pageflip
+```
 
-### 2. 3D Engine (`engine="3d"`)
-- **Class**: [`HICPageflipEngine3D`](src/js/hic-pageflip/core/engines/engine-3d.js)
-- **Technology**: WebGL / WebGL2 context capturing live DOM nodes to GPU textures via `gl.texElementImage2D()`.
-- **Techniques**:
-  - **Chris Luke's Page Curl Algorithm**: Complete GLSL vertex shader implementation based on [*The Anatomy of a Page Curl*](https://blog.flirble.org/2010/10/08/the-anatomy-of-a-page-curl/).
-  - **Cylindrical & Conical Deformation**: Dynamically transitions between a uniform cylinder (for horizontal flips) and a tapered cone (for diagonal corner pulls), keeping the fold apex anchored to the page edge without bulging.
-  - **Hardware Dual-Sided Texturing**: Shaders sample front (`uSamplerFront`) and back (`uSamplerBack`) textures in a single draw pass using `gl_FrontFacing`.
-  - **Z-Fighting Prevention**: Employs sub-pixel depth offsetting (`uDepthOffset`) to eliminate z-fighting between overlapping sheets.
+### Usage
+
+After installation, import the **main entry point** once in your application.
+
+```js
+import 'hic-pageflip';
+```
+
+The package will auto-register the `<hic-pageflip>` and `<hic-pageflip-page>` web components for you. No need to do anything else!
 
 ---
 
-## Component API & Usage
-
-### Declarative Markup
+## Example
 
 ```html
 <script type="module" src="./js/hic-pageflip/index.js"></script>
@@ -110,7 +104,11 @@ hic-pageflip:defined {
 }
 ```
 
-### Attributes & Properties
+---
+
+## Custom Element Reference
+
+### `<hic-pageflip>` Attributes & Properties
 
 | Attribute | Property | Type | Default | Description |
 | :--- | :--- | :--- | :--- | :--- |
@@ -151,6 +149,30 @@ pageflip.reloadTextures();
   });
   ```
 - **`flipprogress`**: Fired continuously during drag or transition animation ticks with progress data.
+
+---
+
+## Rendering Engines
+
+`<hic-pageflip>` comes equipped with two distinct rendering engines that can be switched dynamically at runtime via the `engine` attribute or property:
+
+### 1. 2D Engine (`engine="2d"`)
+- **Class**: [`HICPageflipEngine2D`](src/js/hic-pageflip/core/engines/engine-2d.js)
+- **Technology**: 2D Canvas context with direct DOM element drawing via `ctx.drawElementImage()`.
+- **Techniques**:
+  - **Geometric Fold Clipping**: Uses half-plane clipping (`clipHalfPlane`) to separate the stationary spread, underneath revealed pages, and turning flap.
+  - **Affine Reflection**: Performs 2D affine matrix reflection across the dynamic fold crease line.
+  - **Dynamic Lighting**: Renders drop shadows cast under the fold crease and spine gutter shadows.
+  - **Pre-warmed Paint Records**: Pre-warms slide paint records to eliminate unstyled content flashing during initial corner peeks.
+
+### 2. 3D Engine (`engine="3d"`)
+- **Class**: [`HICPageflipEngine3D`](src/js/hic-pageflip/core/engines/engine-3d.js)
+- **Technology**: WebGL / WebGL2 context capturing live DOM nodes to GPU textures via `gl.texElementImage2D()`.
+- **Techniques**:
+  - **Chris Luke's Page Curl Algorithm**: Complete GLSL vertex shader implementation based on [*The Anatomy of a Page Curl*](https://blog.flirble.org/2010/10/08/the-anatomy-of-a-page-curl/).
+  - **Cylindrical & Conical Deformation**: Dynamically transitions between a uniform cylinder (for horizontal flips) and a tapered cone (for diagonal corner pulls), keeping the fold apex anchored to the page edge without bulging.
+  - **Hardware Dual-Sided Texturing**: Shaders sample front (`uSamplerFront`) and back (`uSamplerBack`) textures in a single draw pass using `gl_FrontFacing`.
+  - **Z-Fighting Prevention**: Employs sub-pixel depth offsetting (`uDepthOffset`) to eliminate z-fighting between overlapping sheets.
 
 ---
 
@@ -261,20 +283,30 @@ classDiagram
 
 ## Development
 
-### Install & Run Locally
+### Run Locally
 
 ```bash
 # Start local development server on port 3000
 npm start
 ```
 
-Open Chrome Canary at `http://localhost:3000`.
+Point your browser at `http://localhost:3000` to see.
 
-### Deploy to Production
+### Deploy the demo to Netlify
 
 ```bash
 npm run deploy
 ```
+
+### Publish the package
+
+Do not run `npm publish` but, instead, run a custom publish script:
+
+```bash
+npm run pub
+```
+
+The script will automatically build the project first into the `dist` folder, and only publish the contents of that folder.
 
 ---
 
