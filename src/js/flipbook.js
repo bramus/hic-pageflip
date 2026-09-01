@@ -1,17 +1,19 @@
 /**
  * Flipbook Controller & Interaction Engine.
  * Manages state, gesture interactions (mouse/touch), corner hover peeks,
- * spring-eased animations, and page navigation.
+ * spring-eased animations, page navigation, and renderer coordination.
  */
 
 import { constrainPaper, Easing, clamp } from './math.js';
+import { HICFlipbookRenderer2D } from './renderer-2d.js';
+import { HICFlipbookRenderer3D } from './renderer-3d.js';
 
 export class Flipbook {
-  constructor(renderer, options = {}) {
-    this.renderer = renderer;
-    this.canvas = renderer.canvas;
-
-    this.totalPages = options.totalPages || 6;
+  constructor(canvas, slides = [], options = {}) {
+    this.canvas = canvas;
+    this.slides = slides;
+    this.engineMode = options.engine || '2d';
+    this.totalPages = options.totalPages || slides.length || 6;
 
     // Current page: 0 = closed (cover on right), 2 = pages 2 & 3, etc.
     this.currentPage = 0;
@@ -29,8 +31,124 @@ export class Flipbook {
     this.onPageChange = options.onPageChange || null;
     this.onFlipProgress = options.onFlipProgress || null;
 
+    this.createRenderer(this.engineMode);
     this.bindEvents();
     this.startLoop();
+  }
+
+  createRenderer(engineMode) {
+    if (engineMode === '3d') {
+      this.renderer = new HICFlipbookRenderer3D(this.canvas, this.slides);
+    } else {
+      this.renderer = new HICFlipbookRenderer2D(this.canvas, this.slides);
+    }
+  }
+
+  switchEngine(engineMode) {
+    if (this.engineMode === engineMode) return;
+    this.engineMode = engineMode;
+
+    const oldCanvas = this.canvas;
+    const newCanvas = oldCanvas.cloneNode(true);
+    oldCanvas.parentNode.replaceChild(newCanvas, oldCanvas);
+    this.canvas = newCanvas;
+
+    if (!this.canvas.hasAttribute('layoutsubtree')) {
+      this.canvas.setAttribute('layoutsubtree', '');
+    }
+
+    const pw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset?.pageflipWidth, 10) || 1024;
+    const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset?.pageflipHeight, 10) || 768;
+
+    const slideElements = Array.from(this.canvas.querySelectorAll('.slide'));
+    this.slides = slideElements.map((el, index) => ({
+      pageNum: index + 1,
+      element: el,
+      pw: pw,
+      ph: ph
+    }));
+
+    this.createRenderer(engineMode);
+    this.setDimensions(pw, ph);
+    this.bindEvents();
+    this.render();
+  }
+
+  get pw() {
+    return this.renderer ? this.renderer.pw : 1024;
+  }
+
+  get ph() {
+    return this.renderer ? this.renderer.ph : 768;
+  }
+
+  setDimensions(pw, ph) {
+    this.slides.forEach((s) => {
+      s.pw = pw;
+      s.ph = ph;
+    });
+    if (this.renderer) {
+      this.renderer.setDimensions(pw, ph);
+    }
+  }
+
+  resize() {
+    if (this.renderer) {
+      this.renderer.resize();
+    }
+  }
+
+  render() {
+    if (this.renderer) {
+      this.renderer.render(this.getState());
+    }
+  }
+
+  requestRender() {
+    if (this.canvas && typeof this.canvas.requestPaint === 'function') {
+      this.canvas.requestPaint();
+    } else if (this.renderer) {
+      this.renderer.requestRender(() => this.render());
+    }
+  }
+
+  handlePaint() {
+    if (this.engineMode === '3d' && this.renderer) {
+      const state = this.getState();
+      const [leftPage, rightPage] = state.currentSpread;
+      if (!state.isDragging && (!state.activeFlip || state.activeFlip.isPeek)) {
+        if (leftPage > 0 && this.slides[leftPage - 1]) {
+          this.renderer.rasterizeSlideToTexture(this.slides[leftPage - 1]);
+        }
+        if (rightPage <= this.slides.length && this.slides[rightPage - 1]) {
+          this.renderer.rasterizeSlideToTexture(this.slides[rightPage - 1]);
+        }
+      }
+      this.renderer.render(state);
+    } else if (this.renderer) {
+      this.renderer.render(this.getState());
+    }
+  }
+
+  reloadTextures() {
+    if (this.renderer && typeof this.renderer.preloadSlideTextures === 'function') {
+      this.renderer.isReloadingTextures = true;
+      this.slides.forEach((s) => {
+        if (s.element) {
+          s.element.style.transform = 'none';
+        }
+      });
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          this.renderer.preloadSlideTextures();
+          this.renderer.isReloadingTextures = false;
+          this.render();
+        });
+      });
+    } else {
+      this.render();
+    }
   }
 
   get currentSpread() {
@@ -53,12 +171,6 @@ export class Flipbook {
     };
   }
 
-  setRenderer(renderer) {
-    this.renderer = renderer;
-    this.canvas = renderer.canvas;
-    this.bindEvents();
-  }
-
   bindEvents() {
     const el = this.canvas;
 
@@ -73,14 +185,19 @@ export class Flipbook {
     el.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
     window.addEventListener('touchend', (e) => this.handleTouchEnd(e));
     window.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
+
+    // Paint listener
+    const onPaint = () => this.handlePaint();
+    el.onpaint = onPaint;
+    el.addEventListener('paint', onPaint);
   }
 
   /**
    * Detects if pointer is near interactive flip areas / corners
    */
   detectCorner(bookX, bookY) {
-    const pw = this.renderer.pw;
-    const ph = this.renderer.ph;
+    const pw = this.pw;
+    const ph = this.ph;
     const cornerSize = Math.min(pw * 0.35, 180);
     const [leftPage, rightPage] = this.currentSpread;
 
@@ -104,7 +221,7 @@ export class Flipbook {
   }
 
   handlePointerMove(e) {
-    if (this.animation) return;
+    if (this.animation || !this.renderer) return;
 
     const rect = this.canvas.getBoundingClientRect();
     const screenX = e.clientX - rect.left;
@@ -140,7 +257,7 @@ export class Flipbook {
   }
 
   handlePointerDown(e) {
-    if (e.button !== 0 || this.animation) return;
+    if (e.button !== 0 || this.animation || !this.renderer) return;
 
     const rect = this.canvas.getBoundingClientRect();
     const screenX = e.clientX - rect.left;
@@ -167,7 +284,7 @@ export class Flipbook {
   }
 
   handleTouchStart(e) {
-    if (e.touches.length !== 1 || this.animation) return;
+    if (e.touches.length !== 1 || this.animation || !this.renderer) return;
     const touch = e.touches[0];
     const rect = this.canvas.getBoundingClientRect();
     const screenX = touch.clientX - rect.left;
@@ -182,7 +299,7 @@ export class Flipbook {
   }
 
   handleTouchMove(e) {
-    if (!this.isDragging || e.touches.length !== 1) return;
+    if (!this.isDragging || e.touches.length !== 1 || !this.renderer) return;
     e.preventDefault();
     const touch = e.touches[0];
     const rect = this.canvas.getBoundingClientRect();
@@ -208,8 +325,8 @@ export class Flipbook {
   }
 
   getCornerCoords(corner) {
-    const pw = this.renderer.pw;
-    const ph = this.renderer.ph;
+    const pw = this.pw;
+    const ph = this.ph;
     switch (corner) {
       case 'br': return { x: pw, y: ph / 2, dir: 1 };
       case 'tr': return { x: pw, y: -ph / 2, dir: 1 };
@@ -292,8 +409,8 @@ export class Flipbook {
 
   updateDrag(bookX, bookY) {
     if (!this.activeFlip) return;
-    const pw = this.renderer.pw;
-    const ph = this.renderer.ph;
+    const pw = this.pw;
+    const ph = this.ph;
     const flip = this.activeFlip;
 
     const constrained = constrainPaper(bookX, bookY, flip.sx, flip.sy, pw, ph);
@@ -308,7 +425,7 @@ export class Flipbook {
     this.canvas.style.cursor = 'default';
     if (!this.activeFlip) return;
 
-    const pw = this.renderer.pw;
+    const pw = this.pw;
     const flip = this.activeFlip;
     const dragX = flip.px;
     const vx = this.velocity.x;
@@ -330,7 +447,7 @@ export class Flipbook {
     const flip = this.activeFlip;
     if (!flip) return;
 
-    const pw = this.renderer.pw;
+    const pw = this.pw;
     const startPx = flip.px;
     const startPy = flip.py;
 
@@ -382,8 +499,8 @@ export class Flipbook {
     const [_, rightPage] = this.currentSpread;
     if (rightPage > this.totalPages) return;
 
-    const pw = this.renderer.pw;
-    const ph = this.renderer.ph;
+    const pw = this.pw;
+    const ph = this.ph;
     const sx = pw;
     const sy = ph / 2;
 
@@ -432,8 +549,8 @@ export class Flipbook {
     const [leftPage, _] = this.currentSpread;
     if (leftPage <= 0) return;
 
-    const pw = this.renderer.pw;
-    const ph = this.renderer.ph;
+    const pw = this.pw;
+    const ph = this.ph;
     const sx = -pw;
     const sy = ph / 2;
 
@@ -514,7 +631,7 @@ export class Flipbook {
       if (this.animation) {
         this.animation.tick(now);
       }
-      this.renderer.render(this.getState());
+      this.render();
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);

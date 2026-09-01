@@ -1,10 +1,9 @@
 /**
- * HTML-in-Canvas (HIC) Controller for PageFlip.
- * Manages the interactive viewer lifecycle, controls, themes, and engine switching (2D vs 3D).
+ * HTML-in-Canvas (HIC) Application Controller for PageFlip.
+ * Manages UI controls, theme selector, URL parameters, keyboard shortcuts,
+ * and delegates all flipbook lifecycle & rendering interactions exclusively to Flipbook.
  */
 
-import { HICFlipbookRenderer2D } from './renderer-2d.js';
-import { HICFlipbookRenderer3D } from './renderer-3d.js';
 import { Flipbook } from './flipbook.js';
 
 export class HICApp {
@@ -22,29 +21,23 @@ export class HICApp {
 
     this.engineMode = '2d'; // '2d' or '3d'
     this.slides = [];
-    this.renderer = null;
     this.flipbook = null;
 
     this.init();
   }
 
   applyDimensions() {
-    const pw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset.pageflipWidth, 10) || 1024;
-    const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset.pageflipHeight, 10) || 768;
-    const bg = this.canvas.getAttribute('data-pageflip-background') || this.canvas.dataset.pageflipBackground || 'white';
+    const pw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset?.pageflipWidth, 10) || 1024;
+    const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset?.pageflipHeight, 10) || 768;
+    const bg = this.canvas.getAttribute('data-pageflip-background') || this.canvas.dataset?.pageflipBackground || 'white';
 
     this.canvas.style.setProperty('--pageflip-width', `${pw}px`);
     this.canvas.style.setProperty('--pageflip-height', `${ph}px`);
     this.canvas.style.setProperty('--pageflip-background', bg);
 
-    this.slides.forEach((s) => {
-      s.pw = pw;
-      s.ph = ph;
-    });
-
-    if (this.renderer) {
-      this.renderer.setDimensions(pw, ph);
-      this.renderer.resize();
+    if (this.flipbook) {
+      this.flipbook.setDimensions(pw, ph);
+      this.flipbook.resize();
     }
   }
 
@@ -52,47 +45,11 @@ export class HICApp {
     if (this.engineMode === engineMode) return;
     this.engineMode = engineMode;
 
-    const oldCanvas = this.canvas;
-    const newCanvas = oldCanvas.cloneNode(true);
-    oldCanvas.parentNode.replaceChild(newCanvas, oldCanvas);
-    this.canvas = newCanvas;
-
-    if (!this.canvas.hasAttribute('layoutsubtree')) {
-      this.canvas.setAttribute('layoutsubtree', '');
-    }
-
-    const pw = parseInt(this.canvas.getAttribute('data-pageflip-width') || this.canvas.dataset?.pageflipWidth, 10) || 1024;
-    const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset?.pageflipHeight, 10) || 768;
-
-    const slideElements = Array.from(this.canvas.querySelectorAll('.slide'));
-    this.slides = slideElements.map((el, index) => ({
-      pageNum: index + 1,
-      element: el,
-      pw: pw,
-      ph: ph
-    }));
-
-    if (engineMode === '3d') {
-      this.renderer = new HICFlipbookRenderer3D(this.canvas, this.slides);
-    } else {
-      this.renderer = new HICFlipbookRenderer2D(this.canvas, this.slides);
-    }
-
-    this.applyDimensions();
-
-    const curPage = this.flipbook ? this.flipbook.currentPage : 1;
     if (this.flipbook) {
-      this.flipbook.setRenderer(this.renderer);
-      this.flipbook.gotoPage(curPage);
+      this.flipbook.switchEngine(engineMode);
+      this.canvas = this.flipbook.canvas;
+      this.applyDimensions();
     }
-    this.renderer.resize();
-    this.renderer.render(this.flipbook.getState());
-
-    const handlePaint = () => {
-      this.renderer.render(this.flipbook.getState());
-    };
-    this.canvas.onpaint = handlePaint;
-    this.canvas.addEventListener('paint', handlePaint);
   }
 
   checkHICSupport() {
@@ -121,14 +78,12 @@ export class HICApp {
     const ph = parseInt(this.canvas.getAttribute('data-pageflip-height') || this.canvas.dataset?.pageflipHeight, 10) || 768;
 
     const slideElements = Array.from(this.canvas.querySelectorAll('.slide'));
-    this.slides = slideElements.map((el, index) => {
-      return {
-        pageNum: index + 1,
-        element: el,
-        pw: pw,
-        ph: ph
-      };
-    });
+    this.slides = slideElements.map((el, index) => ({
+      pageNum: index + 1,
+      element: el,
+      pw: pw,
+      ph: ph
+    }));
 
     // 2. Determine engine mode from URL param ?engine=2d or ?engine=3d
     const urlParams = new URLSearchParams(window.location.search);
@@ -151,78 +106,47 @@ export class HICApp {
       }
     }
 
-    // 3. Apply canvas dimensions and background variables before renderer preloads textures
+    // 3. Apply canvas dimensions and background variables before textures load
     this.applyDimensions();
-
-    // 4. Initialize chosen renderer
-    if (this.engineMode === '3d') {
-      this.renderer = new HICFlipbookRenderer3D(this.canvas, this.slides);
-    } else {
-      this.renderer = new HICFlipbookRenderer2D(this.canvas, this.slides);
-    }
 
     const totalPages = this.slides.length || 6;
 
-    this.flipbook = new Flipbook(this.renderer, {
+    // 4. Initialize Flipbook (which creates and manages its renderer)
+    this.flipbook = new Flipbook(this.canvas, this.slides, {
+      engine: this.engineMode,
       totalPages,
       onPageChange: (state) => this.onPageChanged(state)
     });
 
-    this.flipbook.totalPages = totalPages;
-    this.renderer.resize();
+    this.flipbook.resize();
 
-    // 3. Observe attribute changes for dynamic width/height/background
+    // 5. Observe attribute changes for dynamic width/height/background
     const attrObserver = new MutationObserver((mutations) => {
       for (const m of mutations) {
         if (m.type === 'attributes' && (m.attributeName === 'data-pageflip-width' || m.attributeName === 'data-pageflip-height' || m.attributeName === 'data-pageflip-background')) {
           this.applyDimensions();
-          this.renderer.render(this.flipbook.getState());
+          this.flipbook.render();
         }
       }
     });
     attrObserver.observe(this.canvas, { attributes: true, attributeFilter: ['data-pageflip-width', 'data-pageflip-height', 'data-pageflip-background'] });
 
-    // 4. Handle canvas resize with ResizeObserver
+    // 6. Handle container resize with ResizeObserver
     const observer = new ResizeObserver(() => {
-      this.renderer.resize();
-      this.renderer.render(this.flipbook.getState());
+      this.flipbook.resize();
+      this.flipbook.render();
     });
     observer.observe(this.container || this.canvas);
 
-    // 5. Handle canvas paint & selection events
-    const handlePaint = () => {
-      if (this.engineMode === '3d' && this.renderer && this.flipbook) {
-        const state = this.flipbook.getState();
-        const [leftPage, rightPage] = state.currentSpread;
-        if (!state.isDragging && (!state.activeFlip || state.activeFlip.isPeek)) {
-          if (leftPage > 0 && this.slides[leftPage - 1]) {
-            this.renderer.rasterizeSlideToTexture(this.slides[leftPage - 1]);
-          }
-          if (rightPage <= this.slides.length && this.slides[rightPage - 1]) {
-            this.renderer.rasterizeSlideToTexture(this.slides[rightPage - 1]);
-          }
-        }
-        this.renderer.render(state);
-      } else if (this.renderer && this.flipbook) {
-        this.renderer.render(this.flipbook.getState());
-      }
-    };
-    this.canvas.onpaint = handlePaint;
-    this.canvas.addEventListener('paint', handlePaint);
-
+    // 7. Handle selection and focus updates
     const triggerPaintUpdate = () => {
-      if (this.canvas && typeof this.canvas.requestPaint === 'function') {
-        this.canvas.requestPaint();
-      } else {
-        handlePaint();
-      }
+      this.flipbook.requestRender();
     };
-
     document.addEventListener('selectionchange', triggerPaintUpdate);
     document.addEventListener('focusin', triggerPaintUpdate);
     document.addEventListener('focusout', triggerPaintUpdate);
 
-    // 6. Setup UI bindings
+    // 8. Setup UI bindings
     this.totalPagesSpan.textContent = totalPages;
     this.pageInput.max = totalPages;
     this.timelineSlider.max = totalPages;
@@ -233,8 +157,8 @@ export class HICApp {
 
   bindEvents() {
     window.addEventListener('resize', () => {
-      this.renderer.resize();
-      this.renderer.render(this.flipbook.getState());
+      this.flipbook.resize();
+      this.flipbook.render();
     });
 
     this.prevBtn.addEventListener('click', () => this.flipbook.flipBackward());
@@ -271,23 +195,7 @@ export class HICApp {
           localStorage.setItem('pageflip_theme', theme);
         } catch (err) {}
 
-        if (this.renderer && typeof this.renderer.preloadSlideTextures === 'function') {
-          this.renderer.isReloadingTextures = true;
-          this.slides.forEach((s) => {
-            if (s.element) {
-              s.element.style.transform = 'none';
-            }
-          });
-
-          // Wait for layout frame to commit before capturing textures with texElementImage2D
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              this.renderer.preloadSlideTextures();
-              this.renderer.isReloadingTextures = false;
-              this.renderer.render(this.flipbook.getState());
-            });
-          });
-        }
+        this.flipbook.reloadTextures();
       });
     }
 
@@ -335,9 +243,7 @@ export class HICApp {
     this.prevBtn.disabled = left <= 0;
     this.nextBtn.disabled = right > total;
 
-    if (this.canvas.requestPaint) {
-      this.canvas.requestPaint();
-    }
+    this.flipbook.requestRender();
   }
 
   updateTimelineProgress(pageNum) {
