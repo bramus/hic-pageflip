@@ -14,7 +14,7 @@ An interactive page flip book viewer powered by the [**HTML-in-Canvas** web API]
 
 `<hic-pageflip>` allows you to render interactive, flip-book style page presentations where every page is composed of **real, accessible DOM elements** (with selectable text, live links, CSS animations, and rich markup), while being deformed and rendered through high-performance 2D Canvas or 3D WebGL deformation pipelines.
 
-[Try a live demo](https://hic-pageflip.netlify.app/)
+[Try the live demo](https://hic-pageflip.netlify.app/) | [Read the introductory blogpost](https://brm.us/hic-pageflip)
 
 ---
 
