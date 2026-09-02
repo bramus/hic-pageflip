@@ -1,7 +1,7 @@
 {
   "name": "hic-pageflip",
   "version": "1.0.1",
-  "description": "Interactive page flip book viewer built with HTML-in-Canvas",
+  "description": "A Pageflip/Flipbook Custom Element powered by HTML-in-Canvas",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

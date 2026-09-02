@@ -1,6 +1,6 @@
 # `<hic-pageflip>`
 
-An interactive page flip book viewer powered by the [**HTML-in-Canvas** web API](https://developer.chrome.com/blog/html-in-canvas-origin-trial).
+A Pageflip/Flipbook Custom Element powered by [HTML-in-Canvas](https://developer.chrome.com/blog/html-in-canvas-origin-trial).
 
 [![A slide in the book with HIC in the top right](https://github.com/bramus/hic-pageflip/raw/main/assets/hic-pageflip.png)](https://hic-pageflip.netlify.app/)
 
@@ -20,7 +20,7 @@ An interactive page flip book viewer powered by the [**HTML-in-Canvas** web API]
 
 ## Prerequisites
 
-To view and interact with `<hic-pageflip>`, you need a browser that supports the **HTML-in-Canvas** API (e.g. Chrome):
+To view and interact with `<hic-pageflip>`, you need a browser that supports HTML-in-Canvas (e.g. Chrome):
 
 1. **Browser**: Google Chrome (v149+ recommended).
 2. **Flag**: Enable `chrome://flags/#canvas-draw-element`
