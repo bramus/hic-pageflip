@@ -30,18 +30,16 @@ for (const file of rootFiles) {
 const pkgPath = path.join(rootDir, 'package.json');
 if (fs.existsSync(pkgPath)) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-  pkg.main = './index.js';
-  pkg.module = './index.js';
-  pkg.exports = {
-    '.': './index.js',
-    './components/*': './components/*',
-    './core/*': './core/*'
-  };
+
+  // Strip scripts so consumers don't get internal build/test scripts
   delete pkg.scripts;
+
+  // Replace ./dist/ with ./ so all paths point to the root of the published package
+  const distPkgContent = JSON.stringify(pkg, null, 2).replaceAll('./dist/', './') + '\n';
 
   fs.writeFileSync(
     path.join(distDir, 'package.json'),
-    JSON.stringify(pkg, null, 2) + '\n',
+    distPkgContent,
     'utf8'
   );
 }

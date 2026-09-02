@@ -3,10 +3,10 @@
   "version": "1.0.1",
   "description": "Interactive page flip book viewer built with HTML-in-Canvas",
   "type": "module",
-  "main": "./index.js",
-  "module": "./index.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "exports": {
-    ".": "./index.js"
+    ".": "./dist/index.js"
   },
   "scripts": {
     "build": "node scripts/build.js",
