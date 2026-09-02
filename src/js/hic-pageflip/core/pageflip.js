@@ -12,7 +12,7 @@ export class Pageflip {
   constructor(canvas, slides = [], options = {}) {
     this.canvas = canvas;
     this.slides = slides;
-    this.engineMode = options.engine || '2d';
+    this.engineMode = options.engine || '3d';
     this.totalPages = options.totalPages || slides.length || 6;
 
     // Current page: 0 = closed (cover on right), 2 = pages 2 & 3, etc.
@@ -41,10 +41,10 @@ export class Pageflip {
   }
 
   createEngine(engineMode) {
-    if (engineMode === '3d') {
-      this.engine = new HICPageflipEngine3D(this.canvas, this.slides);
-    } else {
+    if (engineMode === '2d') {
       this.engine = new HICPageflipEngine2D(this.canvas, this.slides);
+    } else {
+      this.engine = new HICPageflipEngine3D(this.canvas, this.slides);
     }
   }
 
